@@ -74,8 +74,9 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
 @keyframes coinpop { 0%{transform:scale(1);} 50%{transform:scale(1.25); background:#fff3b0;} 100%{transform:scale(1);} }
 .zoo-wide { max-width:980px; }
 .zoo-name { font-size:1.4em; color:#a76a00; margin:6px 0; font-weight:bold; }
-.canvas-wrap { width:100%; overflow:auto; border-radius:18px; border:3px solid #ffc266; background:#cdeeff; }
+.canvas-wrap { position:relative; width:100%; overflow:auto; border-radius:18px; border:3px solid #ffc266; background:#cdeeff; }
 #zoo { display:block; cursor:crosshair; touch-action:none; max-width:100%; height:auto; background:#cdeeff; }
+#minimap { position:absolute; right:10px; top:10px; background:rgba(255,255,255,0.88); border:2px solid #ffc266; border-radius:10px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.18); touch-action:none; }
 .cat-tabs { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px; }
 .cat-tab { border:none; border-radius:12px; padding:7px 12px; font-weight:bold; cursor:pointer; font-family:inherit; background:#fff; color:#a76a00; box-shadow:0 2px 0 #c98a3a; font-size:0.9em; }
 .cat-tab.active { background:#9a6dff; color:#fff; box-shadow:0 2px 0 #6b3fcf; }
@@ -168,7 +169,10 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
 <!-- ZOO -->
 <div class="panel zoo-wide">
   <div class="zoo-name" id="zooName">My Zoo 🦁</div>
-  <div class="canvas-wrap"><canvas id="zoo" width="900" height="500"></canvas></div>
+  <div class="canvas-wrap">
+    <canvas id="zoo" width="900" height="500"></canvas>
+    <canvas id="minimap" width="180" height="130" title="Tap to jump the camera"></canvas>
+  </div>
   <div class="tools">
     <button class="tool active" data-tool="place">📍 Place</button>
     <button class="tool" data-tool="road">🛣️ Road</button>
@@ -709,6 +713,8 @@ function drawZoo(){
   });
   zx.setLineDash([]);
 
+  drawMini();
+
   // items — sort by depth (gx+gy) so back ones render first
   const sorted=[...zooItems].sort((a,b)=>(a.gx+a.gy)-(b.gx+b.gy));
   sorted.forEach(it=>{
@@ -725,6 +731,73 @@ function drawZoo(){
 
   // highlight selected tile under cursor? skipped — keep simple
 }
+
+// Minimap
+const mini=$('minimap'), mx=mini.getContext('2d');
+const MW=mini.width, MH=mini.height;
+let miniScale=1, miniOfx=0, miniOfy=0;
+const CAT_COLORS={animals:'#ff7a55', buildings:'#9a6dff', vehicles:'#2a8bff', nature:'#2f7a1f'};
+
+function drawMini(){
+  mx.clearRect(0,0,MW,MH);
+  mx.fillStyle='#e8f5d8'; mx.fillRect(0,0,MW,MH);
+
+  // canvas viewport corners → world (ix, iy) in tile-units
+  const vp = [
+    {sx:0,sy:0},{sx:ZW,sy:0},{sx:ZW,sy:ZH},{sx:0,sy:ZH}
+  ].map(c=>{
+    const wx = c.sx + cam.x - ZW/2;
+    const wy = c.sy + cam.y - ZH/2;
+    return {ix: wx*2/TW, iy: wy*2/TH};
+  });
+
+  // collect all points
+  const pts = [];
+  zooItems.forEach(it=>pts.push({ix:it.gx-it.gy, iy:it.gx+it.gy, type:it.type, kind:'item'}));
+  roads.forEach(k=>{ const [gx,gy]=k.split(',').map(Number); pts.push({ix:gx-gy, iy:gx+gy, kind:'road'}); });
+  vp.forEach(v=>pts.push({ix:v.ix, iy:v.iy, kind:'vp'}));
+
+  let minIx=Infinity, maxIx=-Infinity, minIy=Infinity, maxIy=-Infinity;
+  pts.forEach(p=>{ if(p.ix<minIx)minIx=p.ix; if(p.ix>maxIx)maxIx=p.ix; if(p.iy<minIy)minIy=p.iy; if(p.iy>maxIy)maxIy=p.iy; });
+  const rangeX=Math.max(1, maxIx-minIx), rangeY=Math.max(1, maxIy-minIy);
+  const PAD=8;
+  const scale=Math.min((MW-2*PAD)/rangeX, (MH-2*PAD)/rangeY);
+  const usedW=rangeX*scale, usedH=rangeY*scale;
+  const ofx=PAD - minIx*scale + (MW-2*PAD-usedW)/2;
+  const ofy=PAD - minIy*scale + (MH-2*PAD-usedH)/2;
+  miniScale=scale; miniOfx=ofx; miniOfy=ofy;
+
+  // roads
+  mx.fillStyle='#6b6b6b';
+  pts.filter(p=>p.kind==='road').forEach(p=>{
+    mx.fillRect(p.ix*scale+ofx-1.2, p.iy*scale+ofy-0.7, 2.4, 1.6);
+  });
+  // items
+  pts.filter(p=>p.kind==='item').forEach(p=>{
+    mx.fillStyle = CAT_COLORS[p.type] || '#fff';
+    mx.fillRect(p.ix*scale+ofx-1.6, p.iy*scale+ofy-1.1, 3.2, 2.4);
+  });
+  // viewport rectangle (rotated diamond in iso-space)
+  mx.strokeStyle='#d65a00'; mx.lineWidth=2; mx.lineJoin='round';
+  mx.beginPath();
+  vp.forEach((v,i)=>{
+    const x=v.ix*scale+ofx, y=v.iy*scale+ofy;
+    if(i===0) mx.moveTo(x,y); else mx.lineTo(x,y);
+  });
+  mx.closePath(); mx.stroke();
+}
+
+function miniJump(e){
+  const r=mini.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  const px=cx/r.width*MW, py=cy/r.height*MH;
+  const ix=(px-miniOfx)/miniScale, iy=(py-miniOfy)/miniScale;
+  cam.x = ix*TW/2; cam.y = iy*TH/2;
+  drawZoo(); saveZoo();
+}
+mini.addEventListener('click', miniJump);
+mini.addEventListener('touchstart', e=>{ e.preventDefault(); e.stopPropagation(); miniJump(e); }, {passive:false});
 
 document.querySelectorAll('.tool[data-tool]').forEach(b=>{
   b.onclick=()=>{
