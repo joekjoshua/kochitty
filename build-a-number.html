@@ -52,6 +52,7 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
 .add-eq { font-size:1.8em; font-weight:bold; color:#d65a00; margin:6px 0 10px; }
 .add-rows { display:flex; flex-direction:column; gap:12px; }
 .add-row { background:#fff8e1; border:2px dashed #ffc266; border-radius:16px; padding:10px; }
+.answer-row { background:#fff4d6; border:2px solid #ff9a3d; box-shadow:0 3px 0 #f0b04a; }
 .row-label { font-size:1.1em; font-weight:bold; color:#a76a00; margin-bottom:6px; }
 .combine-btn { margin-top:10px; background:#9a6dff; color:#fff; border:none; border-radius:14px; padding:12px 22px; font-weight:bold; cursor:pointer; font-family:inherit; font-size:1.15em; box-shadow:0 3px 0 #6b3fcf; }
 .combine-btn:disabled { opacity:0.4; cursor:not-allowed; }
@@ -141,27 +142,25 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
   <div class="add-eq" id="addEq">47 + 28 = ?</div>
   <div class="add-rows">
     <div class="add-row">
-      <div class="row-label"><span id="addAPrefix">You built</span> <span id="addA">47</span></div>
+      <div class="row-label">You built <span id="addA">47</span></div>
       <div class="workspace" id="wsA"></div>
-      <div class="total">So far: <span id="totalA">0</span></div>
     </div>
     <div class="add-row">
-      <div class="row-label"><span id="addBPrefix">Now build</span> <span id="addB">28</span></div>
+      <div class="row-label">+ <span id="addB">28</span></div>
       <div class="workspace" id="wsB"></div>
-      <div class="total">So far: <span id="totalB">0</span></div>
+    </div>
+    <div class="add-row answer-row">
+      <div class="row-label">Build the answer: <span id="addEqLabel">47 + 28</span> = ?</div>
+      <div class="workspace" id="wsAns"></div>
+      <div class="total">So far: <span id="totalAns">0</span></div>
       <div class="tray">
-        <button class="add-10" data-side="B" data-v="10">+10</button>
-        <button class="add-5"  data-side="B" data-v="5">+5</button>
-        <button class="add-1"  data-side="B" data-v="1">+1</button>
-        <button class="clear-btn" data-side="B" data-clear="1">Clear</button>
+        <button class="add-10" data-side="ANS" data-v="10">+10</button>
+        <button class="add-5"  data-side="ANS" data-v="5">+5</button>
+        <button class="add-1"  data-side="ANS" data-v="1">+1</button>
+        <button class="clear-btn" data-side="ANS" data-clear="1">Clear</button>
       </div>
     </div>
-    <div class="add-row combined-row" id="combinedRow" style="display:none;">
-      <div class="row-label">All together</div>
-      <div class="workspace" id="wsC"></div>
-    </div>
   </div>
-  <button class="combine-btn" id="combineBtn" disabled>✨ Combine!</button>
   <div class="decomposition" id="dec"></div>
   <button class="next-btn" id="nextBtn" style="display:none;">Next problem →</button>
 </div>
@@ -297,20 +296,17 @@ function celebrate(){
 function goToAdd(){
   aTarget = target;
   aBlocks = [...blocks];
-  // pick a second addend that's reasonable and varied
-  bTarget = 13 + rnd(60); // 13..72
+  bTarget = 13 + rnd(60);
+  bBlocks = decomposeToBlocks(bTarget);
+  answerTarget = aTarget + bTarget;
+  ansBlocks = [];
+  combined = false;
   $('addA').textContent=aTarget;
   $('addB').textContent=bTarget;
   $('addEq').textContent=aTarget+' + '+bTarget+' = ?';
-  $('addAPrefix').textContent='You built';
-  $('addBPrefix').textContent='Now build';
-  bBlocks=[];
-  combined=false;
+  $('addEqLabel').textContent=aTarget+' + '+bTarget;
   $('dec').innerHTML='';
-  $('combinedRow').style.display='none';
   $('nextBtn').style.display='none';
-  $('combineBtn').style.display='';
-  $('combineBtn').disabled=true;
   renderAdd();
   $('buildPanel').style.display='none';
   $('addPanel').style.display='';
@@ -328,61 +324,72 @@ document.querySelectorAll('#buildPanel .tray button[data-v]').forEach(b=>{
 $('clearBtn').onclick=()=>{ blocks=[]; render(); };
 
 // ---------- ADD MODE ----------
-let aTarget=0, bTarget=0;
-let aBlocks=[], bBlocks=[];
+let aTarget=0, bTarget=0, answerTarget=0;
+let aBlocks=[], bBlocks=[], ansBlocks=[];
 let combined=false;
 
-function renderSide(side){
-  const ws = side==='A'?$('wsA'):$('wsB');
-  const totalEl = side==='A'?$('totalA'):$('totalB');
-  const targetN = side==='A'?aTarget:bTarget;
-  const arr = side==='A'?aBlocks:bBlocks;
-  ws.innerHTML='';
+function decomposeToBlocks(n){
+  const arr=[]; let r=n;
+  while(r>=10){ arr.push(10); r-=10; }
+  while(r>=5){ arr.push(5); r-=5; }
+  while(r>=1){ arr.push(1); r-=1; }
+  return arr;
+}
+
+const ROW_CFG={
+  A:   {ws:'wsA',   total:null,       getTarget:()=>aTarget,      getArr:()=>aBlocks,   editable:false},
+  B:   {ws:'wsB',   total:null,       getTarget:()=>bTarget,      getArr:()=>bBlocks,   editable:false},
+  ANS: {ws:'wsAns', total:'totalAns', getTarget:()=>answerTarget, getArr:()=>ansBlocks, editable:true}
+};
+function renderRow(side){
+  const cfg=ROW_CFG[side];
+  const arr=cfg.getArr();
+  const ws=$(cfg.ws); ws.innerHTML='';
   [...arr].sort((a,b)=>b-a).forEach(v=>{
-    ws.appendChild(blockEl(v, ()=>{
-      const i=arr.lastIndexOf(v); if(i>=0){ arr.splice(i,1); renderSide(side); checkReady(); }
-    }));
+    const onClick = (cfg.editable && !combined) ? ()=>{
+      const i=arr.lastIndexOf(v);
+      if(i>=0){ arr.splice(i,1); renderRow(side); checkAnswer(); }
+    } : null;
+    ws.appendChild(blockEl(v, onClick));
   });
-  const t=sum(arr);
-  totalEl.innerHTML='So far: <span>'+t+'</span>';
-  totalEl.classList.toggle('over', t>targetN);
-  totalEl.classList.toggle('match', t===targetN);
+  if(cfg.total){
+    const t=sum(arr);
+    const span=$(cfg.total);
+    span.textContent=t;
+    const totalDiv=span.parentElement;
+    totalDiv.classList.toggle('over', t>cfg.getTarget());
+    totalDiv.classList.toggle('match', t===cfg.getTarget());
+  }
 }
+function renderAdd(){ renderRow('A'); renderRow('B'); renderRow('ANS'); }
 
-function renderAdd(){ renderSide('A'); renderSide('B'); checkReady(); }
-
-function addSide(side,v){
-  const arr = side==='A'?aBlocks:bBlocks;
-  arr.push(v);
-  autoBundle(arr);
-  renderSide(side);
-  checkReady();
-}
-
-function checkReady(){
-  $('combineBtn').disabled = combined || sum(aBlocks)!==aTarget || sum(bBlocks)!==bTarget;
-}
-
-document.querySelectorAll('#addPanel .tray button[data-v]').forEach(b=>{
-  b.onclick=()=>addSide(b.dataset.side, +b.dataset.v);
-});
-document.querySelectorAll('#addPanel .tray button[data-clear]').forEach(b=>{
-  b.onclick=()=>{ const side=b.dataset.side; if(side==='A')aBlocks=[]; else bBlocks=[]; renderSide(side); checkReady(); };
-});
-
-$('combineBtn').onclick=()=>{
+function addAnswer(v){
   if(combined) return;
-  combined=true;
-  $('combineBtn').style.display='none';
+  ansBlocks.push(v);
+  autoBundle(ansBlocks);
+  renderRow('ANS');
+  checkAnswer();
+}
+function clearAnswer(){
+  if(combined) return;
+  ansBlocks=[]; renderRow('ANS');
+}
+function checkAnswer(){
+  if(combined) return;
+  if(sum(ansBlocks)===answerTarget){
+    combined=true;
+    showDecomposition();
+  }
+}
 
-  // Combined visual: all blocks together, sorted big-to-small
-  const all=[...aBlocks, ...bBlocks];
-  autoBundle(all); // bundles cross-row pairs too (e.g. one 5 from each row)
-  const wsC=$('wsC'); wsC.innerHTML='';
-  [...all].sort((a,b)=>b-a).forEach(v=>wsC.appendChild(blockEl(v, null, false)));
-  $('combinedRow').style.display='';
+document.querySelectorAll('#addPanel .tray button[data-side="ANS"][data-v]').forEach(b=>{
+  b.onclick=()=>addAnswer(+b.dataset.v);
+});
+document.querySelectorAll('#addPanel .tray button[data-side="ANS"][data-clear]').forEach(b=>{
+  b.onclick=clearAnswer;
+});
 
-  // Decomposition text
+function showDecomposition(){
   const aTens=Math.floor(aTarget/10)*10, aOnes=aTarget-aTens;
   const bTens=Math.floor(bTarget/10)*10, bOnes=bTarget-bTens;
   const sumTens=aTens+bTens, sumOnes=aOnes+bOnes;
@@ -393,7 +400,6 @@ $('combineBtn').onclick=()=>{
   html+='<div class="dec-line">= (<span class="dec-tens">'+aTens+'</span> + <span class="dec-ones">'+aOnes+'</span>) + (<span class="dec-tens">'+bTens+'</span> + <span class="dec-ones">'+bOnes+'</span>)</div>';
   html+='<div class="dec-line">= <span class="dec-tens">'+aTens+'</span> + <span class="dec-tens">'+bTens+'</span> + <span class="dec-ones">'+aOnes+'</span> + <span class="dec-ones">'+bOnes+'</span></div>';
   html+='<div class="dec-line">= <span class="dec-tens">'+sumTens+'</span> + <span class="dec-ones">'+sumOnes+'</span></div>';
-
   if(sumOnes>=10){
     const newOnes=sumOnes-10, newTens=sumTens+10;
     html+='<div class="dec-line regroup-note">('+sumOnes+' ones = 1 ten + '+newOnes+' ones)</div>';
@@ -403,10 +409,10 @@ $('combineBtn').onclick=()=>{
   html+='<div class="dec-answer">= '+total+' 🎉  +'+reward+' 🪙</div>';
   $('dec').innerHTML=html;
 
-  awardCoins(reward, $('combineBtn'));
+  awardCoins(reward, $('wsAns'));
   confetti();
   $('nextBtn').style.display='';
-};
+}
 
 $('nextBtn').onclick=()=>goToBuild();
 
