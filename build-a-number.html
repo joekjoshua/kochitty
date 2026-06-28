@@ -73,19 +73,32 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
 .chip { display:inline-block; background:rgba(255,255,255,0.85); border:2px solid #ffc266; border-radius:16px; padding:6px 14px; font-weight:bold; margin:0 4px 4px; color:#a76a00; }
 .chip.coin-pop { animation:coinpop 0.5s; }
 @keyframes coinpop { 0%{transform:scale(1);} 50%{transform:scale(1.25); background:#fff3b0;} 100%{transform:scale(1);} }
-.zoo-wide { max-width:980px; }
-.zoo-name { font-size:1.4em; color:#a76a00; margin:6px 0; font-weight:bold; }
-.canvas-wrap { position:relative; width:100%; overflow:auto; border-radius:18px; border:3px solid #ffc266; background:#cdeeff; }
-#zoo { display:block; cursor:crosshair; touch-action:none; max-width:100%; height:auto; background:#cdeeff; }
+.zoo-wide { max-width:1040px; }
+.zoo-header { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:4px 0 10px; }
+.zoo-name { font-size:1.4em; color:#a76a00; font-weight:bold; }
+.pick-hint { font-size:0.95em; color:#7a5a30; background:rgba(255,255,255,0.7); border:2px solid #ffc266; border-radius:14px; padding:5px 12px; }
+.pick-hint span { font-size:1.5em; vertical-align:-3px; }
+.canvas-wrap { position:relative; width:100%; overflow:hidden; border-radius:18px; border:3px solid #ffc266; background:#cdeeff; box-shadow:0 4px 0 #f0b04a; }
+#zoo { display:block; cursor:crosshair; touch-action:none; width:100%; height:auto; background:#cdeeff; }
 #minimap { position:absolute; right:10px; top:10px; background:rgba(255,255,255,0.88); border:2px solid #ffc266; border-radius:10px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.18); touch-action:none; }
-.cat-tabs { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px; }
-.cat-tab { border:none; border-radius:12px; padding:7px 12px; font-weight:bold; cursor:pointer; font-family:inherit; background:#fff; color:#a76a00; box-shadow:0 2px 0 #c98a3a; font-size:0.9em; }
-.cat-tab.active { background:#9a6dff; color:#fff; box-shadow:0 2px 0 #6b3fcf; }
+
+.shelf-wrap { display:flex; gap:10px; margin-top:12px; align-items:stretch; }
+.cat-sidebar { display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
+.cat-btn { border:none; border-radius:12px; padding:10px 12px; font-weight:bold; cursor:pointer; font-family:inherit; background:#fff; color:#a76a00; box-shadow:0 2px 0 #c98a3a; font-size:0.9em; min-width:120px; text-align:left; transition:transform 0.08s; }
+.cat-btn:hover { background:#fff3b0; }
+.cat-btn:active { transform:translateY(2px); box-shadow:0 0 0 #c98a3a; }
+.shelf-section { margin-bottom:10px; }
+.sec-head { font-weight:bold; color:#a76a00; margin:4px 2px 6px; font-size:0.95em; border-bottom:1px solid #ffd99a; padding-bottom:3px; }
+@media (max-width:640px){
+  .shelf-wrap { flex-direction:column; }
+  .cat-sidebar { flex-direction:row; flex-wrap:wrap; }
+  .cat-btn { min-width:auto; flex:1; text-align:center; padding:8px 6px; font-size:0.8em; }
+}
 .tools { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
 .tool { border:none; border-radius:14px; padding:8px 14px; font-weight:bold; cursor:pointer; font-family:inherit; background:#fff; color:#a76a00; box-shadow:0 2px 0 #c98a3a; font-size:0.95em; }
 .tool.active { background:#ff7a55; color:#fff; box-shadow:0 2px 0 #c43818; }
-.sticker-shelf { margin-top:14px; }
-.shelf-title { font-size:0.95em; color:#7a5a30; margin-bottom:6px; }
+.sticker-shelf { flex:1; min-width:0; max-height:340px; overflow-y:auto; padding:10px; border:2px dashed #ffc266; border-radius:14px; background:#fffdf3; }
+.shelf-title { font-size:0.9em; color:#7a5a30; margin-bottom:10px; }
 .zoo-feedback { font-size:1em; font-weight:bold; min-height:1.3em; margin-top:8px; color:#c43818; }
 .stickers { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
 .sticker { position:relative; font-size:1.7em; background:rgba(255,200,100,0.2); border:2px solid transparent; border-radius:12px; padding:6px 8px; cursor:pointer; font-family:inherit; transition:transform 0.1s; }
@@ -167,10 +180,9 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
 
 <!-- ZOO -->
 <div class="panel zoo-wide">
-  <div class="zoo-name" id="zooName">My Zoo 🦁</div>
-  <div class="canvas-wrap">
-    <canvas id="zoo" width="900" height="500"></canvas>
-    <canvas id="minimap" width="180" height="130" title="Tap to jump the camera"></canvas>
+  <div class="zoo-header">
+    <div class="zoo-name" id="zooName">My Zoo 🦁</div>
+    <div class="pick-hint">Picked: <span id="pickEmoji">🐭</span></div>
   </div>
   <div class="tools">
     <button class="tool active" data-tool="place">📍 Place</button>
@@ -180,16 +192,22 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
     <button class="tool" data-tool="erase">🧽 Erase</button>
     <button class="tool" id="centerBtn" title="Center the camera on your stuff">🎯 Center</button>
   </div>
-  <div class="cat-tabs" id="catTabs">
-    <button class="cat-tab active" data-cat="animals">🐭 Animals</button>
-    <button class="cat-tab" data-cat="buildings">🏠 Buildings</button>
-    <button class="cat-tab" data-cat="vehicles">🚗 Vehicles</button>
-    <button class="cat-tab" data-cat="nature">🌳 Nature</button>
+  <div class="canvas-wrap">
+    <canvas id="zoo" width="900" height="500"></canvas>
+    <canvas id="minimap" width="180" height="130" title="Tap to jump the camera"></canvas>
   </div>
-  <div class="sticker-shelf">
-    <div class="shelf-title">Earn coins from math, then spend them to grow your map! Use 🗺️ Pan to scroll around. 👇</div>
-    <div class="stickers" id="stickers"></div>
-    <div class="zoo-feedback" id="zooFeedback"></div>
+  <div class="shelf-wrap">
+    <div class="cat-sidebar">
+      <button class="cat-btn" data-cat="animals">🐭 Animals</button>
+      <button class="cat-btn" data-cat="buildings">🏠 Buildings</button>
+      <button class="cat-btn" data-cat="vehicles">🚗 Vehicles</button>
+      <button class="cat-btn" data-cat="nature">🌳 Nature</button>
+    </div>
+    <div class="sticker-shelf" id="shelfScroll">
+      <div class="shelf-title">Earn coins from math, then spend them to grow your map! Use 🗺️ Pan to scroll around. 👇</div>
+      <div id="stickerSections"></div>
+      <div class="zoo-feedback" id="zooFeedback"></div>
+    </div>
   </div>
   <div class="nameRow">
     <input id="nameInput" placeholder="Name your zoo..." maxlength="22">
@@ -258,9 +276,10 @@ function render(){
   });
   lastBundle='';
   const total=sum(blocks);
-  $('total').innerHTML='So far: <span>'+total+'</span>';
-  $('total').classList.toggle('over', total>target);
-  $('total').classList.toggle('match', total===target);
+  $('total').textContent=total;
+  const totalDiv=$('total').parentElement;
+  totalDiv.classList.toggle('over', total>target);
+  totalDiv.classList.toggle('match', total===target);
   if(total===target) celebrate();
 }
 
@@ -515,19 +534,35 @@ function awardCoins(n, anchorEl){
   }
 }
 
+const CAT_LABEL={animals:'🐭 Animals', buildings:'🏠 Buildings', vehicles:'🚗 Vehicles', nature:'🌳 Nature'};
+function findEmoji(e){
+  for(const cat in catalog){
+    const info = catalog[cat].find(a=>a.e===e);
+    if(info) return {cat, info};
+  }
+  return null;
+}
 function renderStickers(){
-  const box=$('stickers'); box.innerHTML='';
-  catalog[category].forEach(a=>{
-    const b=document.createElement('button');
-    const afford = coins >= a.cost;
-    b.className='sticker' + (afford?'':' locked') + (a.e===selectedEmoji?' selected':'');
-    b.innerHTML=a.e+'<span class="badge">🪙'+a.cost+'</span>';
-    b.title = afford ? 'Tap to use' : 'Need '+a.cost+' coins';
-    b.onclick=()=>{
-      if(coins >= a.cost){ selectedEmoji=a.e; renderStickers(); saveZoo(); }
-    };
-    box.appendChild(b);
-  });
+  const wrap=$('stickerSections'); wrap.innerHTML='';
+  for(const cat in catalog){
+    const sec=document.createElement('div'); sec.className='shelf-section'; sec.id='sec-'+cat;
+    const head=document.createElement('div'); head.className='sec-head'; head.textContent=CAT_LABEL[cat];
+    sec.appendChild(head);
+    const grid=document.createElement('div'); grid.className='stickers';
+    catalog[cat].forEach(a=>{
+      const b=document.createElement('button');
+      const afford = coins >= a.cost;
+      b.className='sticker' + (afford?'':' locked') + (a.e===selectedEmoji?' selected':'');
+      b.innerHTML=a.e+'<span class="badge">🪙'+a.cost+'</span>';
+      b.title = afford ? 'Tap to use' : 'Need '+a.cost+' coins';
+      b.onclick=()=>{
+        if(coins >= a.cost){ selectedEmoji=a.e; $('pickEmoji').textContent=a.e; renderStickers(); saveZoo(); }
+      };
+      grid.appendChild(b);
+    });
+    sec.appendChild(grid);
+    wrap.appendChild(sec);
+  }
 }
 
 // Canvas + isometric projection (infinite grid, camera-relative)
@@ -587,10 +622,11 @@ function zooDown(e){
 
   if(zooTool==='place'){
     if(itemAt(cell.gx,cell.gy)){ flashZoo('That spot is taken — try another tile.'); return; }
-    const a = catalog[category].find(x=>x.e===selectedEmoji) || catalog[category][0];
-    if(coins < a.cost){ flashZoo('Need '+a.cost+' 🪙 for '+a.e+' — do a sum to earn coins!'); return; }
-    coins -= a.cost; $('coins').textContent=coins;
-    zooItems.push({e:a.e, gx:cell.gx, gy:cell.gy, type:category});
+    const f = findEmoji(selectedEmoji);
+    if(!f){ flashZoo('Pick a sticker from the shelf first.'); return; }
+    if(coins < f.info.cost){ flashZoo('Need '+f.info.cost+' 🪙 for '+f.info.e+' — do a sum to earn coins!'); return; }
+    coins -= f.info.cost; $('coins').textContent=coins;
+    zooItems.push({e:f.info.e, gx:cell.gx, gy:cell.gy, type:f.cat});
     renderStickers(); drawZoo(); saveZoo();
   }
   else if(zooTool==='road'){
@@ -726,9 +762,10 @@ function drawZoo(){
   sorted.forEach(it=>{
     const p=iso(it.gx, it.gy);
     // shadow
-    zx.fillStyle='rgba(0,0,0,0.2)';
+    zx.fillStyle='rgba(0,0,0,0.22)';
     zx.beginPath(); zx.ellipse(p.x, p.y+4, 16, 5, 0, 0, Math.PI*2); zx.fill();
-    // bigger emoji for buildings & vehicles, regular for animals/nature
+    // reset fillStyle to opaque so the color-emoji glyph isn't dimmed
+    zx.fillStyle='#000';
     const size = (it.type==='buildings') ? 44 : (it.type==='vehicles') ? 34 : 32;
     zx.font = size+'px serif';
     zx.textAlign='center'; zx.textBaseline='alphabetic';
@@ -824,15 +861,14 @@ $('centerBtn').onclick=()=>{
   }
   drawZoo(); saveZoo();
 };
-document.querySelectorAll('.cat-tab').forEach(b=>{
+document.querySelectorAll('.cat-btn').forEach(b=>{
   b.onclick=()=>{
-    document.querySelectorAll('.cat-tab').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    category=b.dataset.cat;
-    if(!catalog[category].some(a=>a.e===selectedEmoji)){
-      selectedEmoji=catalog[category][0].e;
+    const target = document.getElementById('sec-'+b.dataset.cat);
+    const scroll = $('shelfScroll');
+    if(target && scroll){
+      const top = target.offsetTop - scroll.offsetTop - 4;
+      scroll.scrollTo({top, behavior:'smooth'});
     }
-    renderStickers(); saveZoo();
   };
 });
 $('nameBtn').onclick=()=>{
@@ -848,10 +884,7 @@ $('clearZoo').onclick=()=>{
 loadZoo();
 $('coins').textContent=coins;
 $('zooName').textContent=zooName;
-// sync active category tab + tool
-document.querySelectorAll('.cat-tab').forEach(b=>{
-  b.classList.toggle('active', b.dataset.cat===category);
-});
+$('pickEmoji').textContent=selectedEmoji;
 renderStickers();
 drawZoo();
 
