@@ -68,6 +68,31 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
 .confetti { position:fixed; top:-20px; font-size:1.5em; pointer-events:none; z-index:99; animation:fall 2.4s linear forwards; }
 @keyframes fall { to { transform:translateY(110vh) rotate(540deg); opacity:0; } }
 
+/* Zoo */
+.chip { display:inline-block; background:rgba(255,255,255,0.85); border:2px solid #ffc266; border-radius:16px; padding:6px 14px; font-weight:bold; margin:0 4px 4px; color:#a76a00; }
+.chip.coin-pop { animation:coinpop 0.5s; }
+@keyframes coinpop { 0%{transform:scale(1);} 50%{transform:scale(1.25); background:#fff3b0;} 100%{transform:scale(1);} }
+.zoo-name { font-size:1.4em; color:#a76a00; margin:6px 0; font-weight:bold; }
+#zoo { width:100%; max-width:760px; height:380px; background:linear-gradient(180deg,#cdeeff 0%, #cdeeff 55%, #84cf6e 55%, #4ba83a 100%); border-radius:18px; cursor:crosshair; display:block; touch-action:none; margin:0 auto; border:3px solid #ffc266; }
+.tools { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
+.tool { border:none; border-radius:14px; padding:8px 14px; font-weight:bold; cursor:pointer; font-family:inherit; background:#fff; color:#a76a00; box-shadow:0 2px 0 #c98a3a; font-size:0.95em; }
+.tool.active { background:#ff7a55; color:#fff; box-shadow:0 2px 0 #c43818; }
+.sticker-shelf { margin-top:14px; }
+.shelf-title { font-size:0.95em; color:#7a5a30; margin-bottom:6px; }
+.stickers { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+.sticker { position:relative; font-size:1.7em; background:rgba(255,200,100,0.2); border:2px solid transparent; border-radius:12px; padding:6px 8px; cursor:pointer; font-family:inherit; transition:transform 0.1s; }
+.sticker:hover { transform:translateY(-2px); }
+.sticker .badge { position:absolute; top:-6px; right:-6px; background:#ff9a3d; color:#fff; font-size:0.45em; font-weight:bold; border-radius:10px; padding:2px 6px; }
+.sticker.locked { opacity:0.3; cursor:not-allowed; }
+.sticker.locked:hover { transform:none; }
+.sticker.selected { border-color:#ff7a55; background:#fff3b0; }
+.nameRow { margin-top:12px; display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
+.nameRow input { font-family:inherit; font-size:1em; border-radius:12px; border:2px solid #ffc266; padding:8px 12px; min-width:140px; }
+.bigbtn { border:none; border-radius:12px; padding:9px 16px; font-weight:bold; cursor:pointer; font-family:inherit; background:#ff9a3d; color:#fff; font-size:0.95em; box-shadow:0 3px 0 #d65a00; }
+.bigbtn.danger { background:#c66; box-shadow:0 3px 0 #833; }
+.coin-fly { position:fixed; font-size:1.4em; pointer-events:none; z-index:98; animation:coinfly 1.2s ease-out forwards; }
+@keyframes coinfly { 0%{transform:translateY(0) scale(1); opacity:1;} 100%{transform:translateY(-80px) scale(1.4); opacity:0;} }
+
 .legend { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin:8px 0 0; font-size:0.9em; color:#7a5a30; }
 .legend span { display:inline-flex; align-items:center; gap:6px; }
 .legend .swatch { display:inline-block; width:14px; height:14px; border-radius:3px; }
@@ -82,6 +107,7 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
 </nav>
 <h1>🔟 Build a Number!</h1>
 <div class="subtitle">Stack tens, fives, and ones to make a number — then add another to it!</div>
+<div style="text-align:center;"><span class="chip coins" id="coinChip">🪙 Coins: <span id="coins">0</span></span></div>
 
 <!-- BUILD MODE -->
 <div class="panel" id="buildPanel">
@@ -131,6 +157,26 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
   <button class="combine-btn" id="combineBtn" disabled>✨ Combine!</button>
   <div class="decomposition" id="dec"></div>
   <button class="next-btn" id="nextBtn" style="display:none;">Next problem →</button>
+</div>
+
+<!-- ZOO -->
+<div class="panel">
+  <div class="zoo-name" id="zooName">My Zoo 🦁</div>
+  <canvas id="zoo" width="700" height="380"></canvas>
+  <div class="tools">
+    <button class="tool active" data-tool="place">📍 Place</button>
+    <button class="tool" data-tool="move">✋ Move</button>
+    <button class="tool" data-tool="erase">🧽 Erase</button>
+  </div>
+  <div class="sticker-shelf">
+    <div class="shelf-title">Earn coins from math problems to unlock animals! 👇</div>
+    <div class="stickers" id="stickers"></div>
+  </div>
+  <div class="nameRow">
+    <input id="nameInput" placeholder="Name your zoo..." maxlength="22">
+    <button class="bigbtn" id="nameBtn">Save Name</button>
+    <button class="bigbtn danger" id="clearZoo">Clear Zoo</button>
+  </div>
 </div>
 
 <script>
@@ -221,7 +267,8 @@ let celebrating=false;
 function celebrate(){
   if(celebrating) return;
   celebrating=true;
-  $('feedback').textContent='✅ '+target+'! Now let\'s add to it...';
+  awardCoins(2, $('target'));
+  $('feedback').textContent='✅ '+target+'! +2 🪙  Now let\'s add to it...';
   $('feedback').style.color='#3a7c2c';
   confetti();
   setTimeout(()=>{ celebrating=false; goToAdd(); }, 1600);
@@ -332,9 +379,11 @@ $('combineBtn').onclick=()=>{
     html+='<div class="dec-line regroup-note">('+sumOnes+' ones = 1 ten + '+newOnes+' ones)</div>';
     html+='<div class="dec-line">= <span class="dec-tens">'+newTens+'</span> + <span class="dec-ones">'+newOnes+'</span></div>';
   }
-  html+='<div class="dec-answer">= '+total+' 🎉</div>';
+  const reward = 3 + (sumOnes>=10?1:0);
+  html+='<div class="dec-answer">= '+total+' 🎉  +'+reward+' 🪙</div>';
   $('dec').innerHTML=html;
 
+  awardCoins(reward, $('combineBtn'));
   confetti();
   $('nextBtn').style.display='';
 };
@@ -353,6 +402,187 @@ function confetti(){
     setTimeout(()=>c.remove(), 2800);
   }
 }
+
+// ---------- ZOO ----------
+let coins=0;
+let zooItems=[];      // {e, x, y}
+let zooName='My Zoo 🦁';
+let selectedAnimal='🐭';
+let zooTool='place';
+let dragItem=null;
+
+const animals=[
+  // Tier 1 — start with these unlocked
+  {e:'🐭',cost:1},{e:'🐹',cost:1},{e:'🐰',cost:1},{e:'🐤',cost:1},{e:'🐢',cost:1},{e:'🐸',cost:1},{e:'🐟',cost:1},
+  // Tier 2 — pets
+  {e:'🐶',cost:3},{e:'🐱',cost:3},{e:'🐷',cost:3},{e:'🐮',cost:3},{e:'🐔',cost:3},{e:'🦆',cost:3},
+  // Tier 3 — forest
+  {e:'🦊',cost:6},{e:'🐻',cost:6},{e:'🐨',cost:6},{e:'🐼',cost:6},{e:'🐧',cost:6},{e:'🦉',cost:6},
+  // Tier 4 — wild
+  {e:'🦁',cost:10},{e:'🐯',cost:10},{e:'🐺',cost:10},{e:'🦝',cost:10},{e:'🐊',cost:10},
+  // Tier 5 — safari
+  {e:'🐘',cost:15},{e:'🦒',cost:15},{e:'🦓',cost:15},{e:'🦛',cost:15},{e:'🐪',cost:15},{e:'🦏',cost:15},
+  // Tier 6 — legendary
+  {e:'🦄',cost:25},{e:'🐉',cost:25},{e:'🦖',cost:40}
+];
+
+function loadZoo(){
+  try{
+    const s=JSON.parse(localStorage.getItem('kochitty.zoo')||'{}');
+    if(typeof s.coins==='number') coins=s.coins;
+    if(Array.isArray(s.items)) zooItems=s.items;
+    if(typeof s.name==='string' && s.name) zooName=s.name;
+    if(typeof s.selected==='string' && s.selected) selectedAnimal=s.selected;
+  }catch(e){}
+}
+function saveZoo(){
+  try{ localStorage.setItem('kochitty.zoo', JSON.stringify({coins, items:zooItems, name:zooName, selected:selectedAnimal})); }catch(e){}
+}
+
+function awardCoins(n, anchorEl){
+  coins += n;
+  $('coins').textContent=coins;
+  const chip=$('coinChip');
+  chip.classList.remove('coin-pop'); void chip.offsetWidth; chip.classList.add('coin-pop');
+  renderStickers();
+  saveZoo();
+  // flying coins from the source toward the chip
+  if(anchorEl){
+    const r=anchorEl.getBoundingClientRect();
+    for(let i=0;i<Math.min(n,5);i++){
+      const f=document.createElement('div');
+      f.className='coin-fly'; f.textContent='🪙';
+      f.style.left=(r.left + r.width/2 + (rnd(40)-20))+'px';
+      f.style.top=(r.top + r.height/2)+'px';
+      f.style.animationDelay=(i*0.08)+'s';
+      document.body.appendChild(f);
+      setTimeout(()=>f.remove(), 1400);
+    }
+  }
+}
+
+function renderStickers(){
+  const box=$('stickers'); box.innerHTML='';
+  animals.forEach(a=>{
+    const b=document.createElement('button');
+    const afford = coins >= a.cost;
+    b.className='sticker' + (afford?'':' locked') + (a.e===selectedAnimal?' selected':'');
+    b.innerHTML=a.e+'<span class="badge">🪙'+a.cost+'</span>';
+    b.title = afford ? 'Tap to use this animal' : 'Need '+a.cost+' coins';
+    b.onclick=()=>{
+      if(coins >= a.cost){ selectedAnimal=a.e; renderStickers(); saveZoo(); }
+    };
+    box.appendChild(b);
+  });
+}
+
+// Canvas
+const zoo=$('zoo'), zx=zoo.getContext('2d');
+const ZW=zoo.width, ZH=zoo.height;
+
+function pos(e){
+  const r=zoo.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  return {x:cx/r.width*ZW, y:cy/r.height*ZH};
+}
+function nearest(p){
+  let best=null, bd=40;
+  zooItems.forEach(it=>{ const d=Math.hypot(it.x-p.x, it.y-p.y); if(d<bd){bd=d;best=it;} });
+  return best;
+}
+
+function zooDown(e){
+  e.preventDefault();
+  const p=pos(e);
+  if(zooTool==='place'){
+    zooItems.push({e:selectedAnimal, x:p.x, y:p.y});
+    drawZoo(); saveZoo();
+  } else if(zooTool==='erase'){
+    const it=nearest(p);
+    if(it){ zooItems=zooItems.filter(x=>x!==it); drawZoo(); saveZoo(); }
+  } else if(zooTool==='move'){
+    dragItem=nearest(p);
+  }
+}
+function zooMove(e){
+  if(zooTool==='move' && dragItem){
+    e.preventDefault();
+    const p=pos(e);
+    dragItem.x=p.x; dragItem.y=p.y;
+    drawZoo();
+  }
+}
+function zooUp(){ if(dragItem){ dragItem=null; saveZoo(); } }
+
+zoo.addEventListener('mousedown', zooDown);
+zoo.addEventListener('mousemove', zooMove);
+window.addEventListener('mouseup', zooUp);
+zoo.addEventListener('touchstart', zooDown, {passive:false});
+zoo.addEventListener('touchmove', zooMove, {passive:false});
+window.addEventListener('touchend', zooUp);
+
+function drawZoo(){
+  zx.clearRect(0,0,ZW,ZH);
+  // Sun
+  zx.fillStyle='#fff5a8';
+  zx.beginPath(); zx.arc(ZW-70, 60, 36, 0, Math.PI*2); zx.fill();
+  zx.fillStyle='rgba(255,220,80,0.4)';
+  zx.beginPath(); zx.arc(ZW-70, 60, 50, 0, Math.PI*2); zx.fill();
+  // Clouds
+  zx.fillStyle='rgba(255,255,255,0.9)';
+  [[120,55,26],[300,80,22],[500,45,28]].forEach(([cx,cy,r])=>{
+    zx.beginPath();
+    zx.arc(cx,cy,r,0,7);
+    zx.arc(cx+r*0.8,cy+4,r*0.75,0,7);
+    zx.arc(cx-r*0.8,cy+4,r*0.75,0,7);
+    zx.fill();
+  });
+  // Fence along grass top
+  const grassY = ZH*0.55;
+  zx.fillStyle='#8b5a2b';
+  for(let x=10; x<ZW-10; x+=22){
+    zx.fillRect(x, grassY-12, 4, 18);
+  }
+  zx.fillRect(10, grassY-6, ZW-20, 3);
+  // Grass tufts
+  zx.fillStyle='#2f7a1f';
+  for(let i=0;i<30;i++){
+    const x = (i*27 + 15) % (ZW-20) + 10;
+    const y = ZH - 6 - ((i*11)%14);
+    zx.beginPath();
+    zx.moveTo(x,y); zx.lineTo(x-4,y-9); zx.lineTo(x,y-6); zx.lineTo(x+4,y-9); zx.closePath();
+    zx.fill();
+  }
+  // Animals (sort by y so nearer-bottom render in front)
+  zx.font='38px serif'; zx.textAlign='center'; zx.textBaseline='middle';
+  [...zooItems].sort((a,b)=>a.y-b.y).forEach(it=>{
+    zx.fillText(it.e, it.x, it.y);
+  });
+}
+
+document.querySelectorAll('.tool').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    zooTool=b.dataset.tool;
+  };
+});
+$('nameBtn').onclick=()=>{
+  const v=$('nameInput').value.trim();
+  if(v){ zooName = v+' 🦁'; $('zooName').textContent=zooName; saveZoo(); }
+};
+$('clearZoo').onclick=()=>{
+  if(zooItems.length===0 || confirm('Clear all the animals from your zoo?')){
+    zooItems=[]; drawZoo(); saveZoo();
+  }
+};
+
+loadZoo();
+$('coins').textContent=coins;
+$('zooName').textContent=zooName;
+renderStickers();
+drawZoo();
 
 newTarget();
 </script>
