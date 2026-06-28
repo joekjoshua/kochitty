@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compass &amp; Protractor — Geometry Construction Lab</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f3f4f6;
+    color: #1f2937;
+  }
+  header {
+    background: #1e3a8a;
+    color: #fff;
+    padding: 14px 20px;
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+  .wrap { display: flex; gap: 0; height: calc(100vh - 64px); }
+  .side {
+    width: 280px;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    padding: 14px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .stage { flex: 1; position: relative; overflow: hidden; }
+  svg { width: 100%; height: 100%; background:
+    linear-gradient(#eef2ff 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(90deg, #eef2ff 1px, transparent 1px) 0 0 / 28px 28px,
+    #ffffff;
+    cursor: crosshair; touch-action: none; }
+
+  .toolbtn {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; text-align: left;
+    background: #f9fafb; border: 2px solid #e5e7eb;
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+    cursor: pointer; font-size: 14px; color: #111827;
+    transition: all .12s;
+  }
+  .toolbtn:hover { border-color: #93c5fd; background:#eff6ff; }
+  .toolbtn.active { border-color: #2563eb; background: #dbeafe; box-shadow: 0 0 0 1px #2563eb inset; }
+  .toolbtn .ic { font-size: 20px; width: 26px; text-align:center; }
+  .toolbtn.grp { margin-bottom: 5px; }
+  .subrow { display:flex; gap:6px; margin:-2px 0 9px; padding-left:8px; }
+  .subrow .toolbtn { margin-bottom:0; }
+  .subrow .toolbtn.active { border-color:#2563eb; background:#dbeafe; }
+  .toolbtn small { display:block; color:#6b7280; font-size:11px; margin-top:2px; }
+
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color:#6b7280; margin: 18px 0 8px; }
+  .hint {
+    font-size: 13px; line-height: 1.45; background:#fffbeb; border:1px solid #fde68a;
+    border-radius: 8px; padding: 10px; color:#78350f; min-height: 40px;
+  }
+  .row { display:flex; gap:8px; }
+  .row .toolbtn { margin-bottom: 0; }
+  .mini { flex:1; justify-content:center; font-size:13px; padding:9px; }
+
+  .challenge {
+    border:1px solid #e5e7eb; border-radius:8px; padding:9px 10px; margin-bottom:8px;
+    font-size:13px; cursor:pointer; background:#fff;
+  }
+  .challenge:hover { background:#f9fafb; }
+  .challenge b { display:block; font-size:13px; }
+  .challenge span { color:#6b7280; font-size:11.5px; }
+
+  /* angle popup */
+  #anglebox {
+    position:absolute; background:#fff; border:1px solid #cbd5e1; border-radius:10px;
+    padding:12px; box-shadow:0 8px 24px rgba(0,0,0,.15); display:none; z-index:10; width:200px;
+  }
+  #anglebox label { font-size:12px; color:#374151; }
+  #angleval { font-weight:700; color:#1e3a8a; }
+  #anglebox input[type=range]{ width:100%; }
+  #anglebox button {
+    width:100%; margin-top:8px; background:#2563eb; color:#fff; border:none;
+    border-radius:8px; padding:8px; cursor:pointer; font-size:13px;
+  }
+  .legend { font-size:11.5px; color:#6b7280; line-height:1.6; }
+  .legend b{color:#374151;}
+  .palette { display:flex; flex-wrap:wrap; gap:7px; }
+  .sw { width:25px; height:25px; border-radius:50%; cursor:pointer;
+    border:2px solid #fff; box-shadow:0 0 0 1px #cbd5e1; }
+  .sw.active { box-shadow:0 0 0 2px #1e3a8a; transform:scale(1.1); }
+  .sw.auto { background:conic-gradient(#ef4444,#f59e0b,#22c55e,#3b82f6,#a855f7,#ef4444);
+    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;
+    text-shadow:0 0 2px #000; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Compass &amp; Protractor — Construction Lab</h1>
+  <p>Your only measuring tools: a <b>compass</b> (lengths) and a <b>protractor</b> (angles). Draw with dots and a ruler.</p>
+</header>
+
+<div class="wrap">
+  <div class="side">
+    <h3>Tools</h3>
+    <button class="toolbtn active" data-tool="dot">
+      <span class="ic">·</span><span>Dot<small>Place a point (snaps to lines &amp; crossings)</small></span>
+    </button>
+    <button class="toolbtn grp" data-grp="ruler">
+      <span class="ic">╱</span><span>Ruler<small>Connect dots: segment, ray, or full line</small></span>
+    </button>
+    <div class="subrow" data-sub="ruler">
+      <button class="toolbtn mini" data-tool="segment">Segment</button>
+      <button class="toolbtn mini" data-tool="ray">Ray</button>
+      <button class="toolbtn mini" data-tool="line">Line</button>
+    </div>
+
+    <button class="toolbtn grp" data-grp="compass">
+      <span class="ic">◯</span><span>Compass<small>Lengths: full circle or a swung arc</small></span>
+    </button>
+    <div class="subrow" data-sub="compass">
+      <button class="toolbtn mini" data-tool="circle">Circle</button>
+      <button class="toolbtn mini" data-tool="arc">Arc</button>
+    </div>
+
+    <button class="toolbtn" data-tool="protractor">
+      <span class="ic">∠</span><span>Protractor<small>3 dots: vertex O, direction B, then C. Reads angle BOC.</small></span>
+    </button>
+    <div class="subrow" data-sub="protractor">
+      <button class="toolbtn mini active" data-pmode="ray">Rays</button>
+      <button class="toolbtn mini" data-pmode="line">Lines</button>
+    </div>
+
+    <h3>Level 1 — Bisectors</h3>
+    <button class="toolbtn" data-tool="bisectAngle">
+      <span class="ic">⦟</span><span>Angle bisector<small>Click vertex O, then A, then B</small></span>
+    </button>
+    <button class="toolbtn" data-tool="perpBisect">
+      <span class="ic">⊥</span><span>Perpendicular bisector<small>Click two points</small></span>
+    </button>
+
+    <h3>Level 2 — Figures</h3>
+    <button class="toolbtn" data-tool="equilateral">
+      <span class="ic">△</span><span>Equilateral triangle<small>Click two points (the base)</small></span>
+    </button>
+    <button class="toolbtn" data-tool="parallel">
+      <span class="ic">∥</span><span>Parallel line<small>Click base (2 pts), then set distance</small></span>
+    </button>
+
+    <h3>Color</h3>
+    <div class="palette" id="palette">
+      <div class="sw auto active" data-color="auto" title="Auto (default colors)">A</div>
+      <div class="sw" data-color="#111827" style="background:#111827"></div>
+      <div class="sw" data-color="#1d4ed8" style="background:#1d4ed8"></div>
+      <div class="sw" data-color="#dc2626" style="background:#dc2626"></div>
+      <div class="sw" data-color="#059669" style="background:#059669"></div>
+      <div class="sw" data-color="#7c3aed" style="background:#7c3aed"></div>
+      <div class="sw" data-color="#ea580c" style="background:#ea580c"></div>
+      <div class="sw" data-color="#db2777" style="background:#db2777"></div>
+    </div>
+
+    <h3>Style</h3>
+    <div class="row">
+      <button class="toolbtn mini opb" data-op="0.3">30%</button>
+      <button class="toolbtn mini opb" data-op="0.5">50%</button>
+      <button class="toolbtn mini opb active" data-op="1">100%</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="toolbtn mini dashb active" data-dash="0">─ Solid</button>
+      <button class="toolbtn mini dashb" data-dash="1">··· Dotted</button>
+    </div>
+
+    <h3>Edit</h3>
+    <div class="row">
+      <button class="toolbtn mini" id="undo">↶ Undo</button>
+      <button class="toolbtn mini" data-tool="erase">⌫ Erase</button>
+      <button class="toolbtn mini" id="clear">Clear</button>
+    </div>
+
+    <h3>View</h3>
+    <div class="row">
+      <button class="toolbtn mini" id="zoomin">＋ Zoom</button>
+      <button class="toolbtn mini" id="zoomout">－ Zoom</button>
+      <button class="toolbtn mini" id="resetview">Reset</button>
+    </div>
+    <div class="legend" style="margin-top:6px">
+      Scroll to zoom · drag with <b>middle mouse</b> or hold <b>Space</b> + drag to pan.
+    </div>
+
+    <h3>What to do now</h3>
+    <div class="hint" id="hint">Pick the <b>Dot</b> tool and click anywhere to place a point.</div>
+
+    <h3>Challenges</h3>
+    <div class="challenge" data-ch="equ">
+      <b>① Equilateral triangle</b>
+      <span>Two circles of equal radius cross. Where?</span>
+    </div>
+    <div class="challenge" data-ch="bis">
+      <b>② Perpendicular bisector</b>
+      <span>Cut a segment exactly in half — no ruler marks.</span>
+    </div>
+    <div class="challenge" data-ch="hex">
+      <b>③ Regular hexagon</b>
+      <span>Why does the radius fit 6 times around a circle?</span>
+    </div>
+    <div class="challenge" data-ch="ang">
+      <b>④ Copy a 50° angle</b>
+      <span>Use the protractor, then recreate it elsewhere.</span>
+    </div>
+
+    <h3>Legend</h3>
+    <div class="legend">
+      <b style="color:#1d4ed8">Blue</b> dots = points &nbsp;·&nbsp;
+      <b style="color:#059669">Green</b> = snap to a crossing<br>
+      Dashed circle = compass radius preview
+    </div>
+  </div>
+
+  <div class="stage">
+    <svg id="board" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+</div>
+
+<script>
+const SVGNS = "http://www.w3.org/2000/svg";
+const UNIT = 28;                       // pixels per geometry unit (= one grid square)
+function U(px){ return (px/UNIT).toFixed(1); }   // px distance -> unit string
+const board = document.getElementById("board");
+const hintEl = document.getElementById("hint");
+
+let tool = "dot";
+let curColor = "auto";   // "auto" = use per-type default colors
+let curOpacity = 1;
+let curDash = false;
+let protractorMode = "ray";   // "ray" or "line"
+function objColor(){ return curColor==="auto" ? undefined : curColor; }
+function dashArr(d){ return d ? "2 6" : null; }
+let points = [];   // {id,x,y}
+let lines = [];    // {id,a,b}  (a,b are point ids) -> drawn as full line
+let circles = [];  // {id,c,r,thru}  c=center id, r=radius, thru=point id on it
+let angles = [];   // {O,B,C,val}  finished protractor measurements (point ids)
+let arcs = [];     // {id,c,r,a0,a1,thru,...}  compass arcs (center id, radius, start/end angle)
+let bisectMarks = [];   // {O,A,B,color}  equal-angle marks for bisectors
+let parallelMarks = []; // {A,p1,p2,color} distance marking for parallels
+let history = [];  // snapshots for undo
+let pid = 0;
+
+// ---- pending interaction state ----
+let pending = null;  // tool-specific multi-click state
+
+const groups = { ruler:["segment","ray","line"], compass:["circle","arc"] };
+function groupOf(t){ for(const g in groups) if(groups[g].includes(t)) return g; return null; }
+
+const hints = {
+  dot: "Click anywhere to place a point. It snaps to existing points, lines, and crossings.",
+  segment: "Click two points to draw the <b>segment</b> between them.",
+  ray: "Click the <b>start</b> point, then a second point — draws a <b>ray</b> from the first through the second.",
+  line: "Click two points to rule a full <b>line</b> through them (extends both ways).",
+  circle: "Click a point to be the <b>center</b>, then move out — the <b>radius length</b> shows live. Click to set it.",
+  arc: "Click the <b>center</b>, then a <b>start point</b> (sets radius), then click where the arc should <b>end</b>.",
+  protractor: "Three dots: click the <b>vertex O</b>, then the <b>direction B</b>, then <b>C</b>. The angle <b>∠BOC</b> shows live.",
+  bisectAngle: "Click the <b>vertex O</b>, then a point on each arm (<b>A</b>, then <b>B</b>). The bisector ray is drawn.",
+  perpBisect: "Click <b>two points</b>. The perpendicular bisector (through the midpoint, at 90°) is drawn.",
+  equilateral: "Click <b>two points</b> for the base. The equilateral triangle is completed.",
+  parallel: "Click <b>two points</b> for the base line, then click to place the <b>parallel</b> — its distance shows live.",
+  erase: "Click any point, line, circle, or arc to delete it."
+};
+
+function setTool(t){
+  tool = t; pending = null; redraw();
+  document.querySelectorAll('.toolbtn[data-tool]').forEach(b=>
+    b.classList.toggle('active', b.dataset.tool===t));
+  const g = groupOf(t);
+  document.querySelectorAll('.toolbtn.grp').forEach(b=>
+    b.classList.toggle('active', b.dataset.grp===g));
+  document.querySelectorAll('.subrow').forEach(s=>
+    s.style.display = (s.dataset.sub===g || s.dataset.sub===t) ? "flex" : "none");
+  hintEl.innerHTML = hints[t] || "";
+}
+document.querySelectorAll('.toolbtn[data-tool]').forEach(b=>
+  b.addEventListener('click',()=>setTool(b.dataset.tool)));
+document.querySelectorAll('.toolbtn.grp').forEach(b=>
+  b.addEventListener('click',()=>setTool(groups[b.dataset.grp][0])));
+
+document.querySelectorAll('#palette .sw').forEach(sw=>
+  sw.addEventListener('click',()=>{
+    curColor=sw.dataset.color;
+    document.querySelectorAll('#palette .sw').forEach(s=>s.classList.toggle('active',s===sw));
+  }));
+document.querySelectorAll('.opb').forEach(b=>
+  b.addEventListener('click',()=>{ curOpacity=+b.dataset.op;
+    document.querySelectorAll('.opb').forEach(x=>x.classList.toggle('active',x===b)); }));
+document.querySelectorAll('.dashb').forEach(b=>
+  b.addEventListener('click',()=>{ curDash=b.dataset.dash==="1";
+    document.querySelectorAll('.dashb').forEach(x=>x.classList.toggle('active',x===b)); }));
+document.querySelectorAll('[data-pmode]').forEach(b=>
+  b.addEventListener('click',()=>{ protractorMode=b.dataset.pmode;
+    document.querySelectorAll('[data-pmode]').forEach(x=>x.classList.toggle('active',x===b)); }));
+
+// ---------- geometry helpers ----------
+function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function unit(O,P){ const dx=P.x-O.x,dy=P.y-O.y,l=Math.hypot(dx,dy)||1; return {x:dx/l,y:dy/l}; }
+function pushLine(aId,bId,mode){ lines.push({id:++pid,a:aId,b:bId,mode,color:objColor(),opacity:curOpacity,dash:curDash}); }
+function eqApexes(A,B){   // two possible apexes of an equilateral triangle on base AB
+  const dx=B.x-A.x, dy=B.y-A.y, c=Math.cos(Math.PI/3), s=Math.sin(Math.PI/3);
+  return [ {x:A.x+dx*c-dy*-s, y:A.y+dx*-s+dy*c},   // rotate -60°
+           {x:A.x+dx*c-dy*s,  y:A.y+dx*s+dy*c} ];  // rotate +60°
+}
+function addPoint(x,y){ const p={id:++pid,x,y,color:objColor(),opacity:curOpacity}; points.push(p); return p; }
+function getP(id){ return points.find(p=>p.id===id); }
+
+// arc path from angle a0 to a1 (shortest direction, <=180°)
+function arcPath(C,r,a0,a1){
+  let d=a1-a0; while(d<=-Math.PI)d+=2*Math.PI; while(d>Math.PI)d-=2*Math.PI;
+  const x0=C.x+Math.cos(a0)*r, y0=C.y+Math.sin(a0)*r;
+  const x1=C.x+Math.cos(a0+d)*r, y1=C.y+Math.sin(a0+d)*r;
+  return `M ${x0} ${y0} A ${r} ${r} 0 0 ${d>0?1:0} ${x1} ${y1}`;
+}
+
+// line through points a,b -> as infinite line, return two far endpoints for drawing
+function lineEndpoints(a,b,mode){
+  const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy)||1;
+  const ux=dx/len, uy=dy/len, F=4000;
+  if(mode==="segment") return [{x:a.x,y:a.y},{x:b.x,y:b.y}];
+  if(mode==="ray")     return [{x:a.x,y:a.y},{x:a.x+ux*F,y:a.y+uy*F}];
+  return [{x:a.x-ux*F,y:a.y-uy*F},{x:b.x+ux*F,y:b.y+uy*F}]; // full line
+}
+
+// intersection points of all current objects (for snapping)
+function allIntersections(){
+  const out=[];
+  const L = lines.map(l=>({a:getP(l.a),b:getP(l.b)}));
+  const C = circles.map(c=>({c:getP(c.c),r:c.r}))
+    .concat(arcs.map(a=>({c:getP(a.c),r:a.r})));
+  for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++)
+    pushPt(out,lineLine(L[i],L[j]));
+  for(const ln of L)for(const ci of C)
+    lineCircle(ln,ci).forEach(p=>pushPt(out,p));
+  for(let i=0;i<C.length;i++)for(let j=i+1;j<C.length;j++)
+    circleCircle(C[i],C[j]).forEach(p=>pushPt(out,p));
+  return out;
+}
+function pushPt(arr,p){ if(p && isFinite(p.x) && isFinite(p.y)) arr.push(p); }
+
+function lineLine(L1,L2){
+  const x1=L1.a.x,y1=L1.a.y,x2=L1.b.x,y2=L1.b.y;
+  const x3=L2.a.x,y3=L2.a.y,x4=L2.b.x,y4=L2.b.y;
+  const d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+  if(Math.abs(d)<1e-9) return null;
+  const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
+  return {x:x1+t*(x2-x1), y:y1+t*(y2-y1)};
+}
+function lineCircle(L,C){
+  const dx=L.b.x-L.a.x, dy=L.b.y-L.a.y;
+  const fx=L.a.x-C.c.x, fy=L.a.y-C.c.y;
+  const A=dx*dx+dy*dy, B=2*(fx*dx+fy*dy), Cc=fx*fx+fy*fy-C.r*C.r;
+  let disc=B*B-4*A*Cc; if(disc<0)return [];
+  disc=Math.sqrt(disc);
+  const t1=(-B-disc)/(2*A), t2=(-B+disc)/(2*A), res=[];
+  res.push({x:L.a.x+t1*dx,y:L.a.y+t1*dy});
+  if(Math.abs(t1-t2)>1e-9) res.push({x:L.a.x+t2*dx,y:L.a.y+t2*dy});
+  return res;
+}
+function circleCircle(A,B){
+  const d=dist(A.c,B.c);
+  if(d<1e-9||d>A.r+B.r||d<Math.abs(A.r-B.r)) return [];
+  const a=(A.r*A.r-B.r*B.r+d*d)/(2*d);
+  const h2=A.r*A.r-a*a; if(h2<0)return [];
+  const h=Math.sqrt(h2);
+  const xm=A.c.x+a*(B.c.x-A.c.x)/d, ym=A.c.y+a*(B.c.y-A.c.y)/d;
+  const rx=-(B.c.y-A.c.y)*(h/d), ry=(B.c.x-A.c.x)*(h/d);
+  const res=[{x:xm+rx,y:ym+ry}];
+  if(h>1e-6) res.push({x:xm-rx,y:ym-ry});
+  return res;
+}
+// nearest point on a segment-as-line for snapping a click onto a line
+function projOnLine(P,a,b){
+  const dx=b.x-a.x, dy=b.y-a.y, L=dx*dx+dy*dy;
+  if(L<1e-9) return {x:a.x,y:a.y};
+  const t=((P.x-a.x)*dx+(P.y-a.y)*dy)/L;
+  return {x:a.x+t*dx, y:a.y+t*dy};
+}
+
+// ---------- view (zoom/pan) ----------
+let vb={x:0,y:0,w:1000,h:700};
+function applyVB(){ board.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+function zoomAt(cx,cy,f){
+  const nw=vb.w*f, nh=vb.h*f;
+  if(nw<120||nw>8000) return;
+  vb.x=cx-(cx-vb.x)*f; vb.y=cy-(cy-vb.y)*f; vb.w=nw; vb.h=nh; applyVB();
+}
+board.addEventListener("wheel",e=>{
+  e.preventDefault();
+  const p=evtPt(e);
+  zoomAt(p.x,p.y, e.deltaY<0?0.9:1.1);
+  hoverSnap=snap(p); redraw();
+},{passive:false});
+document.getElementById("zoomin").addEventListener("click",()=>zoomAt(vb.x+vb.w/2,vb.y+vb.h/2,0.8));
+document.getElementById("zoomout").addEventListener("click",()=>zoomAt(vb.x+vb.w/2,vb.y+vb.h/2,1.25));
+document.getElementById("resetview").addEventListener("click",()=>{vb={x:0,y:0,w:1000,h:700};applyVB();redraw();});
+
+// panning: middle-button drag, or hold Space + left drag
+let spaceDown=false, pan=null, suppressClick=false;
+document.addEventListener("keydown",e=>{ if(e.code==="Space"){spaceDown=true; board.style.cursor="grab"; e.preventDefault();} });
+document.addEventListener("keyup",  e=>{ if(e.code==="Space"){spaceDown=false; board.style.cursor="";} });
+board.addEventListener("mousedown",e=>{
+  if(e.button===1 || (e.button===0 && spaceDown)){
+    e.preventDefault();
+    const m=board.getScreenCTM();
+    pan={sx:e.clientX,sy:e.clientY,ox:vb.x,oy:vb.y,sa:m.a,sd:m.d,moved:false};
+    board.style.cursor="grabbing";
+  }
+});
+window.addEventListener("mousemove",e=>{
+  if(!pan) return;
+  // CTM.a / .d = screen pixels per SVG unit (accounts for letterboxing)
+  vb.x=pan.ox-(e.clientX-pan.sx)/pan.sa;
+  vb.y=pan.oy-(e.clientY-pan.sy)/pan.sd;
+  pan.moved=true; applyVB();
+});
+window.addEventListener("mouseup",()=>{
+  if(pan){ suppressClick=pan.moved; pan=null; board.style.cursor=spaceDown?"grab":""; }
+});
+
+// ---------- snapping ----------
+function snapR(){ return 14*vb.w/1000; }   // keep snap radius constant on screen
+function snap(P){
+  const SNAP=snapR();
+  // 1) existing points
+  let best=null, bd=SNAP, type="free";
+  for(const p of points){ const d=dist(P,p); if(d<bd){bd=d;best=p;type="point";} }
+  if(best) return {x:best.x,y:best.y,onPoint:best,type};
+  // 2) intersections (crossings)
+  let bi=null, bid=SNAP;
+  for(const ip of allIntersections()){ const d=dist(P,ip); if(d<bid){bid=d;bi=ip;} }
+  if(bi) return {x:bi.x,y:bi.y,type:"cross"};
+  // 3) onto a line
+  let bl=null, bld=SNAP;
+  for(const l of lines){ const pr=projOnLine(P,getP(l.a),getP(l.b)); const d=dist(P,pr); if(d<bld){bld=d;bl=pr;} }
+  if(bl) return {x:bl.x,y:bl.y,type:"online"};
+  // 4) onto a circle or arc
+  let bc=null,bcd=SNAP;
+  for(const c of circles.concat(arcs)){ const C=getP(c.c); const dd=dist(P,C)||1;
+    const pr={x:C.x+(P.x-C.x)/dd*c.r, y:C.y+(P.y-C.y)/dd*c.r};
+    const d=dist(P,pr); if(d<bcd){bcd=d;bc=pr;} }
+  if(bc) return {x:bc.x,y:bc.y,type:"oncircle"};
+  return {x:P.x,y:P.y,type:"free"};
+}
+// get a point id at snapped location, creating one if needed
+function pointAt(s){
+  if(s.onPoint) return s.onPoint;
+  return addPoint(s.x,s.y);
+}
+
+// ---------- coordinates ----------
+function evtPt(e){
+  // use the SVG's real coordinate transform so letterboxing / aspect-ratio
+  // scaling is handled correctly (otherwise clicks land off-target)
+  const pt=board.createSVGPoint();
+  pt.x=e.clientX; pt.y=e.clientY;
+  const m=board.getScreenCTM().inverse();
+  const p=pt.matrixTransform(m);
+  return {x:p.x, y:p.y};
+}
+
+// ---------- drawing ----------
+let hoverSnap=null;
+function el(name,attrs){ const e=document.createElementNS(SVGNS,name);
+  for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+function redraw(){
+  board.innerHTML="";
+  // arcs
+  for(const a of arcs){ const C=getP(a.c); if(!C)continue;
+    board.appendChild(el("path",{d:arcPath(C,a.r,a.a0,a.a1),fill:"none",
+      stroke:a.color||"#0891b2","stroke-width":1.6,opacity:a.opacity??1,
+      "stroke-dasharray":dashArr(a.dash)||"","data-id":a.id,"data-kind":"arc"})); }
+  // circles + radius marks
+  for(const c of circles){ const C=getP(c.c); const col=c.color||"#7c3aed";
+    board.appendChild(el("circle",{cx:C.x,cy:C.y,r:c.r,fill:"none",
+      stroke:col,"stroke-width":1.6,opacity:c.opacity??1,
+      "stroke-dasharray":dashArr(c.dash)||"","data-id":c.id,"data-kind":"circle"}));
+    const th=getP(c.thru) || {x:C.x+c.r, y:C.y};
+    board.appendChild(el("line",{x1:C.x,y1:C.y,x2:th.x,y2:th.y,opacity:(c.opacity??1)*0.7,
+      stroke:col,"stroke-width":1,"stroke-dasharray":"3 3"}));
+  }
+  // lines
+  for(const l of lines){ const [p,q]=lineEndpoints(getP(l.a),getP(l.b),l.mode);
+    board.appendChild(el("line",{x1:p.x,y1:p.y,x2:q.x,y2:q.y,opacity:l.opacity??1,
+      "stroke-dasharray":dashArr(l.dash)||"",
+      stroke:l.color||"#374151","stroke-width":1.6,"data-id":l.id,"data-kind":"line"})); }
+  // pending previews
+  drawPending();
+  const k=vb.w/1000;   // constant on-screen sizing for dots/markers
+  // intersection ghost dots
+  for(const ip of allIntersections())
+    board.appendChild(el("circle",{cx:ip.x,cy:ip.y,r:2.2*k,fill:"#a7f3d0"}));
+  // points
+  for(const p of points)
+    board.appendChild(el("circle",{cx:p.x,cy:p.y,r:3.8*k,fill:p.color||"#1d4ed8",opacity:p.opacity??1,
+      stroke:"#fff","stroke-width":1.3*k,"data-id":p.id,"data-kind":"point"}));
+  // persistent radius labels
+  for(const c of circles){ const C=getP(c.c), th=getP(c.thru)||{x:C.x+c.r,y:C.y};
+    label((C.x+th.x)/2,(C.y+th.y)/2-2, "r = "+U(c.r), c.color||"#7c3aed"); }
+  // persistent angle marks
+  for(const a of angles){ const O=getP(a.O),B=getP(a.B),C=getP(a.C);
+    if(!O||!B||!C) continue;
+    drawAngleArc(O,B,C,a.color||"#f59e0b");
+    label(O.x, O.y-22, a.val.toFixed(1)+"°", a.color||"#b45309"); }
+  // bisector equal-angle marks
+  for(const m of bisectMarks){ const O=getP(m.O),A=getP(m.A),B=getP(m.B);
+    if(O&&A&&B) drawBisectMark(O,A,B,m.color||"#2563eb"); }
+  // parallel distance marks (perpendicular from A to the parallel line)
+  for(const m of parallelMarks){ const A=getP(m.A),L1=getP(m.p1),L2=getP(m.p2);
+    if(!A||!L1||!L2) continue;
+    const F=footPerp(A,L1,L2), col=m.color||"#0d9488";
+    board.appendChild(el("line",{x1:A.x,y1:A.y,x2:F.x,y2:F.y,stroke:col,
+      "stroke-width":1.4,"stroke-dasharray":"5 4"}));
+    label((A.x+F.x)/2,(A.y+F.y)/2, U(dist(A,F)), col); }
+  // hover snap indicator
+  if(hoverSnap){
+    const col = hoverSnap.type==="cross" ? "#059669"
+              : hoverSnap.type==="point" ? "#1d4ed8"
+              : hoverSnap.type==="free" ? "#9ca3af" : "#0891b2";
+    board.appendChild(el("circle",{cx:hoverSnap.x,cy:hoverSnap.y,r:8*k,fill:"none",
+      stroke:col,"stroke-width":2*k}));
+  }
+}
+
+function label(x,y,text,color){
+  const k=vb.w/1000;                 // keep label a constant on-screen size
+  const pad=(text.length*3.4+8)*k;
+  board.appendChild(el("rect",{x:x-pad,y:y-11*k,width:pad*2,height:18*k,rx:4*k,
+    fill:"#fff",stroke:color,"stroke-width":1.2*k,opacity:.95}));
+  const t=el("text",{x:x,y:y+2*k,"text-anchor":"middle","font-size":12*k,
+    "font-weight":700,fill:color,"font-family":"system-ui"});
+  t.textContent=text; board.appendChild(t);
+}
+
+function drawPending(){
+  if(!pending) return;
+  if(tool==="circle" && pending.center){
+    const C=pending.center;
+    const r = hoverSnap?dist(C,hoverSnap):0;
+    board.appendChild(el("circle",{cx:C.x,cy:C.y,r:Math.max(r,0.1),fill:"none",
+      stroke:"#7c3aed","stroke-width":1.4,"stroke-dasharray":"5 4"}));
+    if(hoverSnap){
+      board.appendChild(el("line",{x1:C.x,y1:C.y,x2:hoverSnap.x,y2:hoverSnap.y,
+        stroke:"#7c3aed","stroke-width":1,"stroke-dasharray":"2 3"}));
+      label((C.x+hoverSnap.x)/2,(C.y+hoverSnap.y)/2-4, U(r)+" units", "#7c3aed");
+    }
+  }
+  if(tool==="arc" && pending.center){
+    const C=pending.center;
+    if(!pending.start){
+      const r=hoverSnap?dist(C,hoverSnap):0;
+      board.appendChild(el("circle",{cx:C.x,cy:C.y,r:Math.max(r,0.1),fill:"none",
+        stroke:"#0891b2","stroke-width":1,"stroke-dasharray":"4 4"}));
+      if(hoverSnap) label((C.x+hoverSnap.x)/2,(C.y+hoverSnap.y)/2-4, U(r)+" units","#0891b2");
+    } else {
+      const r=pending.r;
+      board.appendChild(el("circle",{cx:C.x,cy:C.y,r:r,fill:"none",
+        stroke:"#a5b4fc","stroke-width":1,"stroke-dasharray":"3 5"}));
+      const a1=hoverSnap?Math.atan2(hoverSnap.y-C.y,hoverSnap.x-C.x):pending.a0;
+      board.appendChild(el("path",{d:arcPath(C,r,pending.a0,a1),fill:"none",
+        stroke:"#0891b2","stroke-width":2}));
+    }
+  }
+  if((tool==="segment"||tool==="ray"||tool==="line") && pending.a){
+    const a=pending.a, b=hoverSnap||a;
+    const [p,q]=lineEndpoints(a,b,tool);
+    board.appendChild(el("line",{x1:p.x,y1:p.y,x2:q.x,y2:q.y,
+      stroke:"#9ca3af","stroke-width":1.4,"stroke-dasharray":"6 5"}));
+  }
+  if(tool==="protractor" && pending.O){
+    const O=pending.O;
+    board.appendChild(el("circle",{cx:O.x,cy:O.y,r:6,fill:"none",stroke:"#f59e0b","stroke-width":2}));
+    if(pending.B){
+      // fixed ray OB
+      board.appendChild(el("line",{x1:O.x,y1:O.y,x2:pending.B.x,y2:pending.B.y,
+        stroke:"#f59e0b","stroke-width":1.6}));
+      labelPt(pending.B,"B","#b45309");
+      // live ray OC + angle
+      const C = hoverSnap || pending.B;
+      board.appendChild(el("line",{x1:O.x,y1:O.y,x2:C.x,y2:C.y,
+        stroke:"#fbbf24","stroke-width":1.4,"stroke-dasharray":"4 4"}));
+      drawAngleArc(O,pending.B,C);
+      const ang=angleBOC(O,pending.B,C);
+      label(O.x, O.y-22, "∠BOC = "+ang.toFixed(1)+"°", "#b45309");
+    } else if(hoverSnap){
+      board.appendChild(el("line",{x1:O.x,y1:O.y,x2:hoverSnap.x,y2:hoverSnap.y,
+        stroke:"#fbbf24","stroke-width":1.2,"stroke-dasharray":"4 4"}));
+    }
+    labelPt(O,"O","#b45309");
+  }
+  // angle bisector preview
+  if(tool==="bisectAngle" && pending && pending.O){
+    const O=pending.O;
+    board.appendChild(el("circle",{cx:O.x,cy:O.y,r:6,fill:"none",stroke:"#2563eb","stroke-width":2}));
+    if(pending.A){
+      board.appendChild(el("line",{x1:O.x,y1:O.y,x2:pending.A.x,y2:pending.A.y,
+        stroke:"#93c5fd","stroke-width":1.4}));
+      if(hoverSnap){
+        board.appendChild(el("line",{x1:O.x,y1:O.y,x2:hoverSnap.x,y2:hoverSnap.y,
+          stroke:"#93c5fd","stroke-width":1.4,"stroke-dasharray":"4 4"}));
+        const u1=unit(O,pending.A),u2=unit(O,hoverSnap);
+        let bx=u1.x+u2.x,by=u1.y+u2.y; const L=Math.hypot(bx,by)||1;
+        const len=(dist(O,pending.A)+dist(O,hoverSnap))/2;
+        board.appendChild(el("line",{x1:O.x,y1:O.y,x2:O.x+bx/L*len,y2:O.y+by/L*len,
+          stroke:"#2563eb","stroke-width":2}));
+        drawBisectMark(O,pending.A,hoverSnap,"#2563eb");
+      }
+    }
+  }
+  // perpendicular-bisector shadow preview (after 1st point, before 2nd)
+  if(tool==="perpBisect" && pending && pending.a && hoverSnap){
+    const A=pending.a, B=hoverSnap;
+    board.appendChild(el("line",{x1:A.x,y1:A.y,x2:B.x,y2:B.y,
+      stroke:"#cbd5e1","stroke-width":1.2,"stroke-dasharray":"3 4"}));
+    const mx=(A.x+B.x)/2,my=(A.y+B.y)/2,u=unit(A,B);
+    const [pp,qq]=lineEndpoints({x:mx,y:my},{x:mx-u.y,y:my+u.x},"line");
+    board.appendChild(el("line",{x1:pp.x,y1:pp.y,x2:qq.x,y2:qq.y,
+      stroke:"#9ca3af","stroke-width":1.4,"stroke-dasharray":"6 5"}));
+    board.appendChild(el("circle",{cx:mx,cy:my,r:3,fill:"#9ca3af"}));
+  }
+  // equilateral: glowing candidate apexes + preview triangle
+  if(tool==="equilateral" && pending && pending.cands){
+    const A=pending.a,B=pending.b;
+    const near = hoverSnap && dist(hoverSnap,pending.cands[0])<dist(hoverSnap,pending.cands[1])
+               ? pending.cands[0] : pending.cands[1];
+    for(const c of pending.cands){
+      const hot = c===near;
+      board.appendChild(el("circle",{cx:c.x,cy:c.y,r:hot?9:7,fill:"none",
+        stroke:"#16a34a","stroke-width":hot?3:1.5,opacity:hot?1:.6}));
+      if(hot){
+        board.appendChild(el("line",{x1:A.x,y1:A.y,x2:c.x,y2:c.y,stroke:"#16a34a","stroke-width":1.4,"stroke-dasharray":"5 4"}));
+        board.appendChild(el("line",{x1:B.x,y1:B.y,x2:c.x,y2:c.y,stroke:"#16a34a","stroke-width":1.4,"stroke-dasharray":"5 4"}));
+      }
+    }
+  }
+  // parallel-line preview with live distance + perpendicular from A
+  if(tool==="parallel" && pending && pending.b && hoverSnap){
+    const A=pending.a,B=pending.b,dx=B.x-A.x,dy=B.y-A.y;
+    const [pp,qq]=lineEndpoints({x:hoverSnap.x,y:hoverSnap.y},{x:hoverSnap.x+dx,y:hoverSnap.y+dy},"line");
+    board.appendChild(el("line",{x1:pp.x,y1:pp.y,x2:qq.x,y2:qq.y,
+      stroke:"#0d9488","stroke-width":1.6,"stroke-dasharray":"6 5"}));
+    const F=footPerp(A, hoverSnap, {x:hoverSnap.x+dx,y:hoverSnap.y+dy});
+    board.appendChild(el("line",{x1:A.x,y1:A.y,x2:F.x,y2:F.y,
+      stroke:"#0d9488","stroke-width":1.4,"stroke-dasharray":"5 4"}));
+    label((A.x+F.x)/2,(A.y+F.y)/2, U(dist(A,F))+" units","#0d9488");
+  }
+}
+function labelPt(p,txt,color){
+  const k=vb.w/1000;
+  const t=el("text",{x:p.x+8*k,y:p.y-8*k,"font-size":12*k,"font-weight":700,
+    fill:color,"font-family":"system-ui"}); t.textContent=txt; board.appendChild(t);
+}
+// equal-angle marks: two arcs each with a tick, showing the halves are congruent
+function arcSeg(O,R,s,e,color){
+  let d=e-s; while(d<=-Math.PI)d+=2*Math.PI; while(d>Math.PI)d-=2*Math.PI;
+  const x0=O.x+Math.cos(s)*R, y0=O.y+Math.sin(s)*R;
+  const x1=O.x+Math.cos(s+d)*R, y1=O.y+Math.sin(s+d)*R;
+  board.appendChild(el("path",{d:`M ${x0} ${y0} A ${R} ${R} 0 0 ${d>0?1:0} ${x1} ${y1}`,
+    fill:"none",stroke:color,"stroke-width":1.8}));
+}
+function tickAt(O,ang,R,color){
+  board.appendChild(el("line",{x1:O.x+Math.cos(ang)*(R-4),y1:O.y+Math.sin(ang)*(R-4),
+    x2:O.x+Math.cos(ang)*(R+4),y2:O.y+Math.sin(ang)*(R+4),stroke:color,"stroke-width":1.8}));
+}
+function drawBisectMark(O,A,B,color){
+  color=color||"#2563eb"; const R=24;
+  let aA=Math.atan2(A.y-O.y,A.x-O.x), aB=Math.atan2(B.y-O.y,B.x-O.x);
+  let diff=aB-aA; while(diff<=-Math.PI)diff+=2*Math.PI; while(diff>Math.PI)diff-=2*Math.PI;
+  const mid=aA+diff/2;
+  arcSeg(O,R,aA,mid,color); arcSeg(O,R,mid,aB,color);
+  tickAt(O,aA+diff/4,R,color); tickAt(O,aA+diff*3/4,R,color);
+}
+// foot of perpendicular from P onto the line through L1,L2
+function footPerp(P,L1,L2){
+  const dx=L2.x-L1.x,dy=L2.y-L1.y,L=dx*dx+dy*dy||1;
+  const t=((P.x-L1.x)*dx+(P.y-L1.y)*dy)/L;
+  return {x:L1.x+t*dx,y:L1.y+t*dy};
+}
+
+function drawAngleArc(O,B,C,color){
+  const rad=26; color=color||"#f59e0b";
+  let a1=Math.atan2(B.y-O.y,B.x-O.x), a2=Math.atan2(C.y-O.y,C.x-O.x);
+  let diff=a2-a1; while(diff<=-Math.PI)diff+=2*Math.PI; while(diff>Math.PI)diff-=2*Math.PI;
+  const x1=O.x+Math.cos(a1)*rad, y1=O.y+Math.sin(a1)*rad;
+  const x2=O.x+Math.cos(a1+diff)*rad, y2=O.y+Math.sin(a1+diff)*rad;
+  const sweep=diff>0?1:0, large=Math.abs(diff)>Math.PI?1:0;
+  board.appendChild(el("path",{d:`M ${x1} ${y1} A ${rad} ${rad} 0 ${large} ${sweep} ${x2} ${y2}`,
+    fill:"none",stroke:color,"stroke-width":2}));
+}
+
+// ---------- history ----------
+function snapshot(){ history.push(JSON.stringify({points,lines,circles,angles,arcs,bisectMarks,parallelMarks,pid})); if(history.length>50)history.shift(); }
+function undo(){ const s=history.pop(); if(!s)return; const o=JSON.parse(s);
+  points=o.points;lines=o.lines;circles=o.circles;angles=o.angles||[];arcs=o.arcs||[];
+  bisectMarks=o.bisectMarks||[];parallelMarks=o.parallelMarks||[];pid=o.pid;pending=null;redraw(); }
+
+// ---------- interaction ----------
+board.addEventListener("mousemove",e=>{ if(pan)return; hoverSnap=snap(evtPt(e)); redraw(); });
+board.addEventListener("mouseleave",()=>{ hoverSnap=null; redraw(); });
+
+board.addEventListener("click",e=>{
+  if(suppressClick){ suppressClick=false; return; }
+  if(spaceDown) return;
+  const P=evtPt(e), s=snap(P);
+
+  if(tool==="dot"){ snapshot(); pointAt(s); redraw(); say("Point placed. Build more, or switch tools."); return; }
+
+  if(tool==="erase"){ eraseAt(e); return; }
+
+  if(tool==="segment"||tool==="ray"||tool==="line"){
+    const p=pointAt(s);
+    if(!pending){ pending={a:p}; say("Now click a second point."); }
+    else { if(p.id!==pending.a.id){ snapshot(); lines.push({id:++pid,a:pending.a.id,b:p.id,mode:tool,color:objColor(),opacity:curOpacity,dash:curDash}); }
+      pending=null; say(tool.charAt(0).toUpperCase()+tool.slice(1)+" drawn."); }
+    redraw(); return;
+  }
+
+  if(tool==="circle"){
+    const p=pointAt(s);
+    if(!pending){ pending={center:p}; say("Now click a point to set the radius (the length)."); }
+    else {
+      const r=dist(pending.center,p);
+      if(r>1){ snapshot(); circles.push({id:++pid,c:pending.center.id,r,thru:p.id,color:objColor(),opacity:curOpacity,dash:curDash}); }
+      pending=null; say("Circle drawn. Crossings light up green — snap to them!");
+    }
+    redraw(); return;
+  }
+
+  if(tool==="arc"){
+    const p=pointAt(s);
+    if(!pending){ pending={center:p}; say("Now click a <b>start point</b> (sets the radius)."); }
+    else if(!pending.start){
+      if(p.id!==pending.center.id){
+        pending.start=p; pending.r=dist(pending.center,p);
+        pending.a0=Math.atan2(p.y-pending.center.y,p.x-pending.center.x);
+        say("Now click where the arc should <b>end</b>.");
+      }
+    } else {
+      const a1=Math.atan2(s.y-pending.center.y, s.x-pending.center.x);
+      snapshot();
+      arcs.push({id:++pid,c:pending.center.id,r:pending.r,a0:pending.a0,a1,thru:pending.start.id,
+        color:objColor(),opacity:curOpacity,dash:curDash});
+      pending=null; say("Arc drawn. Its endpoints and crossings snap like any circle.");
+    }
+    redraw(); return;
+  }
+
+  if(tool==="protractor"){
+    const p=pointAt(s);
+    if(!pending){ pending={O:p}; say("Vertex O set. Now click the <b>direction point B</b>."); redraw(); return; }
+    if(!pending.B){
+      if(p.id===pending.O.id){ return; }
+      pending.B=p; say("Now click point <b>C</b> — the angle ∠BOC reads live."); redraw(); return;
+    }
+    // third click = C
+    if(p.id!==pending.O.id){
+      snapshot();
+      lines.push({id:++pid,a:pending.O.id,b:pending.B.id,mode:protractorMode,color:objColor(),opacity:curOpacity,dash:curDash});
+      lines.push({id:++pid,a:pending.O.id,b:p.id,mode:protractorMode,color:objColor(),opacity:curOpacity,dash:curDash});
+      const ang=angleBOC(pending.O,pending.B,p);
+      angles.push({O:pending.O.id,B:pending.B.id,C:p.id,val:ang,color:objColor()});
+      say("Angle ∠BOC = <b>"+ang.toFixed(1)+"°</b> — marked on the diagram.");
+    }
+    pending=null; redraw(); return;
+  }
+
+  // ---- Level 1: Angle bisector (O, A, B) ----
+  if(tool==="bisectAngle"){
+    const p=pointAt(s);
+    if(!pending){ pending={O:p}; say("Now click a point on the first arm (<b>A</b>)."); }
+    else if(!pending.A){ if(p.id!==pending.O.id){ pending.A=p; say("Now click a point on the second arm (<b>B</b>)."); } }
+    else if(p.id!==pending.O.id){
+      const O=pending.O, u1=unit(O,pending.A), u2=unit(O,p);
+      let bx=u1.x+u2.x, by=u1.y+u2.y;
+      if(Math.hypot(bx,by)<1e-6){ bx=-u1.y; by=u1.x; }   // arms opposite -> perpendicular
+      const L=Math.hypot(bx,by); bx/=L; by/=L;
+      const len=(dist(O,pending.A)+dist(O,p))/2;
+      snapshot();
+      const np=addPoint(O.x+bx*len, O.y+by*len);
+      pushLine(O.id, np.id, "ray");
+      bisectMarks.push({O:O.id,A:pending.A.id,B:p.id,color:objColor()});
+      say("Angle bisector drawn — equal angles marked.");
+      pending=null;
+    }
+    redraw(); return;
+  }
+
+  // ---- Level 1: Perpendicular bisector (A, B) ----
+  if(tool==="perpBisect"){
+    const p=pointAt(s);
+    if(!pending){ pending={a:p}; say("Now click the second point."); }
+    else if(p.id!==pending.a.id){
+      const A=pending.a, B=p;
+      const mx=(A.x+B.x)/2, my=(A.y+B.y)/2;
+      const u=unit(A,B);            // perpendicular = (-u.y, u.x)
+      const half=dist(A,B)/2 || 60;
+      snapshot();
+      const M=addPoint(mx,my);
+      const e=addPoint(mx-u.y*half, my+u.x*half);
+      pushLine(M.id, e.id, "line");
+      say("Perpendicular bisector drawn (M = midpoint).");
+      pending=null;
+    }
+    redraw(); return;
+  }
+
+  // ---- Level 2: Equilateral triangle (A, B, then choose apex) ----
+  if(tool==="equilateral"){
+    if(!pending){ const p=pointAt(s); pending={a:p}; say("Now click the second base point."); redraw(); return; }
+    if(!pending.b){ const p=pointAt(s); if(p.id!==pending.a.id){ pending.b=p;
+        pending.cands=eqApexes(pending.a,p);
+        say("Now click one of the <b>two glowing apex points</b> to finish."); } redraw(); return; }
+    // third click: restricted to the nearer candidate apex
+    const P=evtPt(e);
+    const cand = dist(P,pending.cands[0])<=dist(P,pending.cands[1]) ? pending.cands[0] : pending.cands[1];
+    const A=pending.a, B=pending.b;
+    snapshot();
+    const C=addPoint(cand.x,cand.y);
+    pushLine(A.id,B.id,"segment"); pushLine(B.id,C.id,"segment"); pushLine(C.id,A.id,"segment");
+    say("Equilateral triangle drawn.");
+    pending=null; redraw(); return;
+  }
+
+  // ---- Level 2: Parallel line at distance (A, B, then P) ----
+  if(tool==="parallel"){
+    const p=pointAt(s);
+    if(!pending){ pending={a:p}; say("Click the second point of the base line."); }
+    else if(!pending.b){ if(p.id!==pending.a.id){ pending.b=p; say("Now click to place the <b>parallel</b> — distance shows live."); } }
+    else {
+      const A=pending.a, B=pending.b, dx=B.x-A.x, dy=B.y-A.y;
+      snapshot();
+      const P=pointAt(s);
+      const P2=addPoint(P.x+dx, P.y+dy);
+      pushLine(P.id, P2.id, "line");
+      parallelMarks.push({A:A.id,p1:P.id,p2:P2.id,color:objColor()});
+      const u=unit(A,B);
+      const d=Math.abs((P.x-A.x)*(-u.y)+(P.y-A.y)*(u.x));
+      say("Parallel line drawn at distance <b>"+U(d)+"</b> units from the base.");
+      pending=null;
+    }
+    redraw(); return;
+  }
+});
+
+// signed-magnitude angle (0–180) between rays OB and OC
+function angleBOC(O,B,C){
+  const a1=Math.atan2(B.y-O.y,B.x-O.x), a2=Math.atan2(C.y-O.y,C.x-O.x);
+  let d=Math.abs(a1-a2)*180/Math.PI;
+  if(d>180) d=360-d;
+  return d;
+}
+
+function say(t){ hintEl.innerHTML=t; }
+
+// ---------- erase ----------
+function eraseAt(e){
+  const t=e.target;
+  if(t.dataset && t.dataset.id){
+    const id=+t.dataset.id, kind=t.dataset.kind;
+    snapshot();
+    if(kind==="point"){
+      points=points.filter(p=>p.id!==id);
+      lines=lines.filter(l=>l.a!==id&&l.b!==id);
+      circles=circles.filter(c=>c.c!==id&&c.thru!==id);
+      arcs=arcs.filter(a=>a.c!==id&&a.thru!==id);
+    } else if(kind==="line") lines=lines.filter(l=>l.id!==id);
+    else if(kind==="circle") circles=circles.filter(c=>c.id!==id);
+    else if(kind==="arc") arcs=arcs.filter(a=>a.id!==id);
+    redraw();
+  }
+}
+
+// ---------- buttons ----------
+document.getElementById("undo").addEventListener("click",undo);
+document.getElementById("clear").addEventListener("click",()=>{
+  snapshot(); points=[];lines=[];circles=[];angles=[];arcs=[];bisectMarks=[];parallelMarks=[];pending=null;redraw();
+  say("Cleared. Start fresh.");
+});
+
+// ---------- challenges (seed a starting figure) ----------
+const challenges={
+  equ:()=>{ reset(); const a=addPoint(380,400), b=addPoint(620,400);
+    lines.push({id:++pid,a:a.id,b:b.id});
+    say("Goal: with the <b>compass</b>, draw a circle centred at each point with radius = AB. Their crossing is the triangle's apex. Connect with the ruler."); },
+  bis:()=>{ reset(); const a=addPoint(360,400), b=addPoint(640,400);
+    lines.push({id:++pid,a:a.id,b:b.id});
+    say("Goal: open the compass <b>wider than half AB</b>, draw a circle from A and from B (same radius). The line through the two crossings is the perpendicular bisector."); },
+  hex:()=>{ reset(); const c=addPoint(500,360); const e=addPoint(620,360);
+    circles.push({id:++pid,c:c.id,r:120,thru:e.id});
+    say("Goal: keep the compass at the circle's radius. Step it around the rim — it lands exactly 6 times. Mark the points and connect them."); },
+  ang:()=>{ reset(); const v=addPoint(300,500), b=addPoint(520,500);
+    lines.push({id:++pid,a:v.id,b:b.id});
+    say("Goal: use the <b>protractor</b> on this line to make a 50° ray. Then place a new line elsewhere and copy the same 50° onto it."); }
+};
+function reset(){ points=[];lines=[];circles=[];angles=[];arcs=[];bisectMarks=[];parallelMarks=[];pid=0;pending=null; }
+document.querySelectorAll(".challenge").forEach(c=>
+  c.addEventListener("click",()=>{ snapshot(); challenges[c.dataset.ch](); setTool("circle"); }));
+
+// keyboard undo
+document.addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey)&&e.key==="z"){e.preventDefault();undo();} });
+
+setTool("dot");
+</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌌 Make Your Own Galaxy!</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+body { font-family:'Comic Sans MS','Trebuchet MS',sans-serif; background:#0a0626; color:#eef; text-align:center; padding:10px; min-height:100vh; }
+h1 { font-size:1.6em; color:#ffe14d; text-shadow:0 0 12px #ff9a3d; }
+.subtitle { color:#bcd; margin:2px 0 10px; font-size:0.95em; }
+.layout { display:flex; gap:14px; max-width:980px; margin:0 auto; flex-wrap:wrap; justify-content:center; }
+.panel { background:rgba(255,255,255,0.07); border:1px solid rgba(150,180,255,0.3); border-radius:22px; padding:16px; }
+.mathPanel { width:300px; }
+.galaxyPanel { flex:1; min-width:320px; }
+
+.chip { display:inline-block; background:rgba(255,255,255,0.12); border-radius:16px; padding:6px 14px; font-weight:bold; margin:0 4px 8px; }
+.coins{color:#ffe14d}
+
+.sum { font-size:2.1em; font-weight:bold; color:#aef; text-shadow:0 0 10px #4af; margin:10px 0; }
+.answers { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.ans-btn { border:none; border-radius:16px; padding:16px; font-size:1.5em; font-weight:bold; cursor:pointer; font-family:inherit; background:#5af; color:#012; box-shadow:0 4px 0 #2a8ac8; }
+.ans-btn:active{transform:translateY(3px)}
+.ans-btn.correct{background:#9fffa0!important;box-shadow:0 4px 0 #6fd66a!important}
+.ans-btn.wrong{background:#ff8a8a!important;box-shadow:0 4px 0 #d65a5a!important}
+.feedback { font-size:1.2em; font-weight:bold; min-height:1.4em; margin-top:12px; }
+
+.sticker-shelf { margin-top:14px; }
+.shelf-title { font-size:0.95em; color:#bcd; margin-bottom:6px; }
+.stickers { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+.sticker { position:relative; font-size:1.6em; background:rgba(255,255,255,0.1); border:none; border-radius:12px; padding:6px 8px; cursor:pointer; }
+.sticker .badge { position:absolute; top:-6px; right:-6px; background:#ffe14d; color:#5a3a00; font-size:0.55em; font-weight:bold; border-radius:10px; padding:1px 5px; }
+.sticker.locked { opacity:0.35; }
+.sticker.selected { outline:3px solid #ffe14d; }
+
+#sky { width:100%; height:440px; background:radial-gradient(circle at 30% 20%,#241a55,#0a0626); border-radius:18px; cursor:crosshair; display:block; touch-action:none; }
+.tools { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
+.tool { border:none; border-radius:14px; padding:8px 12px; font-weight:bold; cursor:pointer; font-family:inherit; background:rgba(255,255,255,0.14); color:#eef; font-size:0.9em; }
+.tool.active{background:#ff8ad6;color:#fff}
+.swatch { width:26px; height:26px; border-radius:50%; border:2px solid #fff3; cursor:pointer; }
+.swatch.active{border:3px solid #ffe14d}
+.nameRow { margin-top:10px; }
+.nameRow input { font-family:inherit; font-size:1em; border-radius:12px; border:none; padding:8px 12px; width:60%; }
+.galaxyName { font-size:1.3em; color:#ffe14d; margin-bottom:6px; min-height:1.4em; }
+.bigbtn { border:none; border-radius:14px; padding:10px 18px; font-weight:bold; cursor:pointer; font-family:inherit; background:#ffe14d; color:#5a3a00; font-size:0.9em; }
+.confetti { position:fixed; top:-20px; font-size:1.4em; pointer-events:none; z-index:99; animation:fall 2s linear forwards; }
+@keyframes fall{to{transform:translateY(110vh) rotate(360deg);opacity:0}}
+</style>
+</head>
+<body>
+<h1>🌌 Make Your Own Galaxy!</h1>
+<div class="subtitle">Solve maths to earn space stickers, then design your very own galaxy! 🎨</div>
+
+<div class="layout">
+  <!-- MATH -->
+  <div class="panel mathPanel">
+    <div class="chip coins">🪙 Coins: <span id="coins">0</span></div>
+    <div class="sum" id="sum"></div>
+    <div class="answers" id="answers"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="sticker-shelf">
+      <div class="shelf-title">Spend coins on stickers, then tap the sky to place them! 👇</div>
+      <div class="stickers" id="stickers"></div>
+    </div>
+  </div>
+
+  <!-- GALAXY -->
+  <div class="panel galaxyPanel">
+    <div class="galaxyName" id="galaxyName">My Galaxy ✨</div>
+    <canvas id="sky" width="600" height="440"></canvas>
+    <div class="tools">
+      <button class="tool active" data-tool="place" id="toolPlace">🌟 Place</button>
+      <button class="tool" data-tool="line" id="toolLine">➰ Connect Stars</button>
+      <button class="tool" data-tool="move" id="toolMove">✋ Move</button>
+      <button class="tool" data-tool="erase" id="toolErase">🧽 Erase</button>
+    </div>
+    <div class="tools" id="swatches"></div>
+    <div class="nameRow">
+      <input id="nameInput" placeholder="Name your galaxy..." maxlength="22">
+      <button class="bigbtn" id="nameBtn">Save Name</button>
+      <button class="bigbtn" id="clearBtn" style="background:#ff9a9a">Clear All</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rnd=n=>Math.floor(Math.random()*n);
+const pick=a=>a[rnd(a.length)];
+let coins=0, answer=0;
+
+// ---- sticker catalog ----
+const catalog=[
+  {e:'⭐',cost:1},{e:'🌟',cost:1},{e:'✨',cost:1},
+  {e:'🪐',cost:2},{e:'🌍',cost:2},{e:'🌙',cost:2},
+  {e:'☄️',cost:3},{e:'🚀',cost:3},{e:'🛸',cost:3},
+  {e:'👽',cost:4},{e:'🌈',cost:4},{e:'☀️',cost:4}
+];
+let selectedSticker=catalog[0].e;
+
+function renderStickers(){
+  const box=$('stickers'); box.innerHTML='';
+  catalog.forEach(s=>{
+    const b=document.createElement('button');
+    const afford=coins>=s.cost;
+    b.className='sticker'+(afford?'':' locked')+(s.e===selectedSticker?' selected':'');
+    b.innerHTML=s.e+'<span class="badge">🪙'+s.cost+'</span>';
+    b.onclick=()=>{ if(coins>=s.cost){ selectedSticker=s.e; renderStickers(); } else { flash('Earn more coins! 🪙'); } };
+    box.appendChild(b);
+  });
+}
+
+// ---- maths ----
+function newSum(){
+  const t=pick(['add','sub','mul']);
+  let a,b,q;
+  if(t==='add'){ a=10+rnd(40); b=5+rnd(30); answer=a+b; q=a+' + '+b; }
+  else if(t==='sub'){ a=20+rnd(50); b=2+rnd(a-5); answer=a-b; q=a+' − '+b; }
+  else { a=2+rnd(9); b=2+rnd(9); answer=a*b; q=a+' × '+b; }
+  $('sum').textContent=q+' = ?';
+  const opts=new Set([answer]);
+  while(opts.size<4){ let d=answer+(rnd(13)-6); if(d>=0&&d!==answer) opts.add(d); }
+  const arr=[...opts].sort(()=>Math.random()-0.5);
+  const box=$('answers'); box.innerHTML='';
+  arr.forEach(v=>{ const btn=document.createElement('button'); btn.className='ans-btn'; btn.textContent=v; btn.onclick=()=>choose(btn,v); box.appendChild(btn); });
+}
+let locked=false;
+function choose(btn,v){
+  if(locked) return; locked=true;
+  if(v===answer){
+    btn.classList.add('correct');
+    coins+=2; $('coins').textContent=coins;
+    $('feedback').textContent=pick(['Yes! +2 coins 🪙','Brilliant! +2 🪙','Star brain! +2 🪙']);
+    $('feedback').style.color='#9fffa0'; confetti(); renderStickers();
+    setTimeout(()=>{ locked=false; $('feedback').textContent=''; newSum(); },1100);
+  } else {
+    btn.classList.add('wrong');
+    $('feedback').textContent='Try the next one! 🚀'; $('feedback').style.color='#ffd27a';
+    setTimeout(()=>{ locked=false; $('feedback').textContent=''; newSum(); },350);
+  }
+}
+
+// ---- galaxy canvas ----
+const sky=$('sky'), sx=sky.getContext('2d');
+const SW=sky.width, SH=sky.height;
+let items=[];   // {e,x,y,color}
+let lines=[];   // {x1,y1,x2,y2,color}
+let tool='place';
+let color='#ffe14d';
+let dragItem=null, lineStart=null;
+
+const colors=['#ffe14d','#ff8ad6','#7fd1ef','#9fffa0','#c79bff','#ff9a6a','#ffffff'];
+function renderSwatches(){
+  const box=$('swatches'); box.innerHTML='';
+  colors.forEach(c=>{ const d=document.createElement('button'); d.className='swatch'+(c===color?' active':''); d.style.background=c; d.onclick=()=>{ color=c; renderSwatches(); }; box.appendChild(d); });
+}
+
+function pos(e){ const r=sky.getBoundingClientRect(); const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left; const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return {x:cx/r.width*SW, y:cy/r.height*SH}; }
+function nearest(p){ let best=null,bd=30; items.forEach(it=>{ const d=Math.hypot(it.x-p.x,it.y-p.y); if(d<bd){bd=d;best=it;} }); return best; }
+
+function onDown(e){ e.preventDefault(); const p=pos(e);
+  if(tool==='place'){ items.push({e:selectedSticker,x:p.x,y:p.y,color}); draw(); }
+  else if(tool==='erase'){ const it=nearest(p); if(it){ items=items.filter(x=>x!==it); } lines=lines.filter(l=>Math.hypot((l.x1+l.x2)/2-p.x,(l.y1+l.y2)/2-p.y)>25); draw(); }
+  else if(tool==='move'){ dragItem=nearest(p); }
+  else if(tool==='line'){ const it=nearest(p); if(it){ if(!lineStart){ lineStart=it; } else if(lineStart!==it){ lines.push({x1:lineStart.x,y1:lineStart.y,x2:it.x,y2:it.y,color}); lineStart=null; } draw(); } }
+}
+function onMove(e){ if(tool==='move'&&dragItem){ e.preventDefault(); const p=pos(e); dragItem.x=p.x; dragItem.y=p.y; draw(); } }
+function onUp(){ dragItem=null; }
+
+sky.addEventListener('mousedown',onDown); sky.addEventListener('mousemove',onMove); window.addEventListener('mouseup',onUp);
+sky.addEventListener('touchstart',onDown,{passive:false}); sky.addEventListener('touchmove',onMove,{passive:false}); window.addEventListener('touchend',onUp);
+
+let twinkle=0;
+function draw(){
+  sx.clearRect(0,0,SW,SH);
+  sx.fillStyle='rgba(255,255,255,0.5)';
+  for(let i=0;i<60;i++){ const px=(i*83)%SW, py=(i*47+twinkle)%SH; const s=(i%5===0)?2:1; sx.globalAlpha=0.3+0.5*Math.abs(Math.sin((twinkle+i*30)/60)); sx.fillRect(px,py,s,s); }
+  sx.globalAlpha=1;
+  lines.forEach(l=>{ sx.strokeStyle=l.color; sx.lineWidth=2; sx.shadowColor=l.color; sx.shadowBlur=8; sx.beginPath(); sx.moveTo(l.x1,l.y1); sx.lineTo(l.x2,l.y2); sx.stroke(); sx.shadowBlur=0; });
+  items.forEach(it=>{ sx.font='30px serif'; sx.textAlign='center'; sx.textBaseline='middle'; sx.shadowColor=it.color; sx.shadowBlur=16; sx.fillText(it.e,it.x,it.y); sx.shadowBlur=0; });
+  if(lineStart){ sx.fillStyle='#ffe14d'; sx.beginPath(); sx.arc(lineStart.x,lineStart.y,6,0,7); sx.fill(); }
+}
+function animate(){ twinkle+=0.6; draw(); requestAnimationFrame(animate); }
+
+document.querySelectorAll('.tool').forEach(b=>{ b.onclick=()=>{ document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tool=b.dataset.tool; lineStart=null; }; });
+$('nameBtn').onclick=()=>{ const v=$('nameInput').value.trim(); if(v){ $('galaxyName').textContent=v+' ✨'; } };
+$('clearBtn').onclick=()=>{ items=[]; lines=[]; draw(); };
+
+function flash(t){ $('feedback').textContent=t; $('feedback').style.color='#ffd27a'; }
+function confetti(){ const e=['🎉','⭐','🚀','🌟','💫','✨','🪐']; for(let i=0;i<12;i++){ const c=document.createElement('div'); c.className='confetti'; c.textContent=pick(e); c.style.left=rnd(100)+'vw'; c.style.animationDelay=(Math.random()*0.4)+'s'; document.body.appendChild(c); setTimeout(()=>c.remove(),2400); } }
+
+renderStickers(); renderSwatches(); newSum(); animate();
+</script>
+</body>
+</html>
