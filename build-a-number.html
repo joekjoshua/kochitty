@@ -172,8 +172,10 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
   <div class="tools">
     <button class="tool active" data-tool="place">📍 Place</button>
     <button class="tool" data-tool="road">🛣️ Road</button>
+    <button class="tool" data-tool="pan">🗺️ Pan</button>
     <button class="tool" data-tool="move">✋ Move</button>
     <button class="tool" data-tool="erase">🧽 Erase</button>
+    <button class="tool" id="centerBtn" title="Center the camera on your stuff">🎯 Center</button>
   </div>
   <div class="cat-tabs" id="catTabs">
     <button class="cat-tab active" data-cat="animals">🐭 Animals</button>
@@ -182,7 +184,7 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
     <button class="cat-tab" data-cat="nature">🌳 Nature</button>
   </div>
   <div class="sticker-shelf">
-    <div class="shelf-title">Earn coins from math, then spend them to grow your map! 👇</div>
+    <div class="shelf-title">Earn coins from math, then spend them to grow your map! Use 🗺️ Pan to scroll around. 👇</div>
     <div class="stickers" id="stickers"></div>
     <div class="zoo-feedback" id="zooFeedback"></div>
   </div>
@@ -426,6 +428,8 @@ let selectedEmoji='🐭';
 let category='animals';
 let zooTool='place';
 let dragItem=null, paintingRoad=false, erasingDrag=false;
+let cam={x:0, y:0};   // camera position in world iso pixels
+let panning=null;     // {sx,sy,cx,cy} during pan
 
 const catalog={
   animals:[
@@ -472,10 +476,11 @@ function loadZoo(){
     if(typeof s.name==='string' && s.name) zooName=s.name;
     if(typeof s.selected==='string' && s.selected) selectedEmoji=s.selected;
     if(typeof s.category==='string' && catalog[s.category]) category=s.category;
+    if(typeof s.camX==='number' && typeof s.camY==='number'){ cam={x:s.camX, y:s.camY}; }
   }catch(e){}
 }
 function saveZoo(){
-  try{ localStorage.setItem('kochitty.zoo', JSON.stringify({coins, items:zooItems, roads:[...roads], name:zooName, selected:selectedEmoji, category})); }catch(e){}
+  try{ localStorage.setItem('kochitty.zoo', JSON.stringify({coins, items:zooItems, roads:[...roads], name:zooName, selected:selectedEmoji, category, camX:cam.x, camY:cam.y})); }catch(e){}
 }
 
 function awardCoins(n, anchorEl){
@@ -515,21 +520,33 @@ function renderStickers(){
   });
 }
 
-// Canvas + isometric projection
+// Canvas + isometric projection (infinite grid, camera-relative)
 const zoo=$('zoo'), zx=zoo.getContext('2d');
 const ZW=zoo.width, ZH=zoo.height;
-const GW=18, GH=14;             // grid in tiles
 const TW=52, TH=26;             // tile width / height (2:1 iso)
-const OX = (GH-1)*TW/2 + 30;    // origin x
-const OY = 70;                  // origin y (leaves room for sky)
 
-function iso(gx, gy){ return {x:(gx-gy)*TW/2 + OX, y:(gx+gy)*TH/2 + OY}; }
+function iso(gx, gy){
+  const wx=(gx-gy)*TW/2, wy=(gx+gy)*TH/2;
+  return {x: wx - cam.x + ZW/2, y: wy - cam.y + ZH/2};
+}
 function invIso(sx, sy){
-  const dx=(sx-OX)/(TW/2), dy=(sy-OY)/(TH/2);
+  const wx = sx + cam.x - ZW/2;
+  const wy = sy + cam.y - ZH/2;
+  const dx = wx/(TW/2), dy = wy/(TH/2);
   return {gx:Math.round((dx+dy)/2), gy:Math.round((dy-dx)/2)};
 }
-function inGrid(c){ return c.gx>=0 && c.gy>=0 && c.gx<GW && c.gy<GH; }
 function itemAt(gx,gy){ return zooItems.find(it=>it.gx===gx && it.gy===gy); }
+function visibleRange(){
+  const corners=[invIso(0,0), invIso(ZW,0), invIso(0,ZH), invIso(ZW,ZH)];
+  let lo=Infinity, hi=-Infinity, lo2=Infinity, hi2=-Infinity;
+  corners.forEach(c=>{ if(c.gx<lo)lo=c.gx; if(c.gx>hi)hi=c.gx; if(c.gy<lo2)lo2=c.gy; if(c.gy>hi2)hi2=c.gy; });
+  return {minGx:lo-1, maxGx:hi+1, minGy:lo2-1, maxGy:hi2+1};
+}
+function setCursor(){
+  if(zooTool==='pan') zoo.style.cursor = panning ? 'grabbing' : 'grab';
+  else if(zooTool==='move') zoo.style.cursor = 'move';
+  else zoo.style.cursor = 'crosshair';
+}
 
 function pos(e){
   const r=zoo.getBoundingClientRect();
@@ -547,8 +564,15 @@ function flashZoo(msg){
 
 function zooDown(e){
   e.preventDefault();
-  const cell=invIso(pos(e).x, pos(e).y);
-  if(!inGrid(cell)) return;
+  const sp=pos(e);
+
+  if(zooTool==='pan'){
+    panning={sx:sp.x, sy:sp.y, cx:cam.x, cy:cam.y};
+    setCursor();
+    return;
+  }
+
+  const cell=invIso(sp.x, sp.y);
   const key=cell.gx+','+cell.gy;
 
   if(zooTool==='place'){
@@ -577,9 +601,18 @@ function zooDown(e){
 }
 
 function zooMove(e){
+  if(panning){
+    e.preventDefault();
+    const sp=pos(e);
+    cam.x = panning.cx - (sp.x - panning.sx);
+    cam.y = panning.cy - (sp.y - panning.sy);
+    drawZoo();
+    return;
+  }
+
   const cell=invIso(pos(e).x, pos(e).y);
-  if(!inGrid(cell)) return;
   const key=cell.gx+','+cell.gy;
+
   if(zooTool==='move' && dragItem){
     e.preventDefault();
     if(dragItem.gx===cell.gx && dragItem.gy===cell.gy) return;
@@ -600,6 +633,7 @@ function zooMove(e){
 }
 
 function zooUp(){
+  if(panning){ panning=null; setCursor(); saveZoo(); }
   if(dragItem){ dragItem=null; saveZoo(); }
   if(paintingRoad){ paintingRoad=false; saveZoo(); }
   if(erasingDrag){ erasingDrag=false; saveZoo(); }
@@ -641,16 +675,18 @@ function drawZoo(){
     zx.fill();
   });
 
-  // ground tiles
-  for(let gy=0;gy<GH;gy++){
-    for(let gx=0;gx<GW;gx++){
+  // ground tiles — iterate visible window only
+  const rng=visibleRange();
+  for(let gy=rng.minGy; gy<=rng.maxGy; gy++){
+    for(let gx=rng.minGx; gx<=rng.maxGx; gx++){
       const p=iso(gx,gy);
+      if(p.x<-TW || p.x>ZW+TW || p.y<-TH || p.y>ZH+TH) continue;
       const key=gx+','+gy;
       if(roads.has(key)){
-        drawDiamond(p.x, p.y, '#666', '#444');
+        drawDiamond(p.x, p.y, '#6b6b6b', '#444');
       } else {
-        const checker = (gx+gy)%2;
-        drawDiamond(p.x, p.y, checker?'#7ec25e':'#8acf68', '#5fa543');
+        const checker = ((gx%2)+(gy%2)+2)%2;
+        drawDiamond(p.x, p.y, checker?'#7ec25e':'#8acf68', 'rgba(90,150,70,0.45)');
       }
     }
   }
@@ -690,13 +726,25 @@ function drawZoo(){
   // highlight selected tile under cursor? skipped — keep simple
 }
 
-document.querySelectorAll('.tool').forEach(b=>{
+document.querySelectorAll('.tool[data-tool]').forEach(b=>{
   b.onclick=()=>{
-    document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tool[data-tool]').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     zooTool=b.dataset.tool;
+    setCursor();
   };
 });
+$('centerBtn').onclick=()=>{
+  if(zooItems.length===0 && roads.size===0){
+    cam={x:0, y:0};
+  } else {
+    let cx=0, cy=0, n=0;
+    zooItems.forEach(it=>{ cx+=(it.gx-it.gy)*TW/2; cy+=(it.gx+it.gy)*TH/2; n++; });
+    roads.forEach(k=>{ const [gx,gy]=k.split(',').map(Number); cx+=(gx-gy)*TW/2; cy+=(gx+gy)*TH/2; n++; });
+    cam.x = cx/n; cam.y = cy/n;
+  }
+  drawZoo(); saveZoo();
+};
 document.querySelectorAll('.cat-tab').forEach(b=>{
   b.onclick=()=>{
     document.querySelectorAll('.cat-tab').forEach(x=>x.classList.remove('active'));
