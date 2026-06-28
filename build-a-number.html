@@ -72,8 +72,13 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
 .chip { display:inline-block; background:rgba(255,255,255,0.85); border:2px solid #ffc266; border-radius:16px; padding:6px 14px; font-weight:bold; margin:0 4px 4px; color:#a76a00; }
 .chip.coin-pop { animation:coinpop 0.5s; }
 @keyframes coinpop { 0%{transform:scale(1);} 50%{transform:scale(1.25); background:#fff3b0;} 100%{transform:scale(1);} }
+.zoo-wide { max-width:980px; }
 .zoo-name { font-size:1.4em; color:#a76a00; margin:6px 0; font-weight:bold; }
-#zoo { width:100%; max-width:760px; height:380px; background:linear-gradient(180deg,#cdeeff 0%, #cdeeff 55%, #84cf6e 55%, #4ba83a 100%); border-radius:18px; cursor:crosshair; display:block; touch-action:none; margin:0 auto; border:3px solid #ffc266; }
+.canvas-wrap { width:100%; overflow:auto; border-radius:18px; border:3px solid #ffc266; background:#cdeeff; }
+#zoo { display:block; cursor:crosshair; touch-action:none; max-width:100%; height:auto; background:#cdeeff; }
+.cat-tabs { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px; }
+.cat-tab { border:none; border-radius:12px; padding:7px 12px; font-weight:bold; cursor:pointer; font-family:inherit; background:#fff; color:#a76a00; box-shadow:0 2px 0 #c98a3a; font-size:0.9em; }
+.cat-tab.active { background:#9a6dff; color:#fff; box-shadow:0 2px 0 #6b3fcf; }
 .tools { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
 .tool { border:none; border-radius:14px; padding:8px 14px; font-weight:bold; cursor:pointer; font-family:inherit; background:#fff; color:#a76a00; box-shadow:0 2px 0 #c98a3a; font-size:0.95em; }
 .tool.active { background:#ff7a55; color:#fff; box-shadow:0 2px 0 #c43818; }
@@ -161,23 +166,30 @@ h1 { font-size:1.7em; color:#d65a00; text-shadow:0 2px 0 #fff8; }
 </div>
 
 <!-- ZOO -->
-<div class="panel">
+<div class="panel zoo-wide">
   <div class="zoo-name" id="zooName">My Zoo 🦁</div>
-  <canvas id="zoo" width="700" height="380"></canvas>
+  <div class="canvas-wrap"><canvas id="zoo" width="900" height="500"></canvas></div>
   <div class="tools">
     <button class="tool active" data-tool="place">📍 Place</button>
+    <button class="tool" data-tool="road">🛣️ Road</button>
     <button class="tool" data-tool="move">✋ Move</button>
     <button class="tool" data-tool="erase">🧽 Erase</button>
   </div>
+  <div class="cat-tabs" id="catTabs">
+    <button class="cat-tab active" data-cat="animals">🐭 Animals</button>
+    <button class="cat-tab" data-cat="buildings">🏠 Buildings</button>
+    <button class="cat-tab" data-cat="vehicles">🚗 Vehicles</button>
+    <button class="cat-tab" data-cat="nature">🌳 Nature</button>
+  </div>
   <div class="sticker-shelf">
-    <div class="shelf-title">Earn coins from math problems, then spend them on animals! 👇</div>
+    <div class="shelf-title">Earn coins from math, then spend them to grow your map! 👇</div>
     <div class="stickers" id="stickers"></div>
     <div class="zoo-feedback" id="zooFeedback"></div>
   </div>
   <div class="nameRow">
     <input id="nameInput" placeholder="Name your zoo..." maxlength="22">
     <button class="bigbtn" id="nameBtn">Save Name</button>
-    <button class="bigbtn danger" id="clearZoo">Clear Zoo</button>
+    <button class="bigbtn danger" id="clearZoo">Clear All</button>
   </div>
 </div>
 
@@ -405,40 +417,65 @@ function confetti(){
   }
 }
 
-// ---------- ZOO ----------
+// ---------- ZOO (isometric map) ----------
 let coins=0;
-let zooItems=[];      // {e, x, y}
+let zooItems=[];      // {e, gx, gy, type}
+let roads=new Set();  // "gx,gy" keys
 let zooName='My Zoo 🦁';
-let selectedAnimal='🐭';
+let selectedEmoji='🐭';
+let category='animals';
 let zooTool='place';
-let dragItem=null;
+let dragItem=null, paintingRoad=false, erasingDrag=false;
 
-const animals=[
-  // Tier 1 — start with these unlocked
-  {e:'🐭',cost:1},{e:'🐹',cost:1},{e:'🐰',cost:1},{e:'🐤',cost:1},{e:'🐢',cost:1},{e:'🐸',cost:1},{e:'🐟',cost:1},
-  // Tier 2 — pets
-  {e:'🐶',cost:3},{e:'🐱',cost:3},{e:'🐷',cost:3},{e:'🐮',cost:3},{e:'🐔',cost:3},{e:'🦆',cost:3},
-  // Tier 3 — forest
-  {e:'🦊',cost:6},{e:'🐻',cost:6},{e:'🐨',cost:6},{e:'🐼',cost:6},{e:'🐧',cost:6},{e:'🦉',cost:6},
-  // Tier 4 — wild
-  {e:'🦁',cost:10},{e:'🐯',cost:10},{e:'🐺',cost:10},{e:'🦝',cost:10},{e:'🐊',cost:10},
-  // Tier 5 — safari
-  {e:'🐘',cost:15},{e:'🦒',cost:15},{e:'🦓',cost:15},{e:'🦛',cost:15},{e:'🐪',cost:15},{e:'🦏',cost:15},
-  // Tier 6 — legendary
-  {e:'🦄',cost:25},{e:'🐉',cost:25},{e:'🦖',cost:40}
-];
+const catalog={
+  animals:[
+    {e:'🐭',cost:1},{e:'🐹',cost:1},{e:'🐰',cost:1},{e:'🐤',cost:1},{e:'🐢',cost:1},{e:'🐸',cost:1},{e:'🐟',cost:1},
+    {e:'🐶',cost:3},{e:'🐱',cost:3},{e:'🐷',cost:3},{e:'🐮',cost:3},{e:'🐔',cost:3},{e:'🦆',cost:3},
+    {e:'🦊',cost:6},{e:'🐻',cost:6},{e:'🐨',cost:6},{e:'🐼',cost:6},{e:'🐧',cost:6},{e:'🦉',cost:6},
+    {e:'🦁',cost:10},{e:'🐯',cost:10},{e:'🐺',cost:10},{e:'🦝',cost:10},{e:'🐊',cost:10},
+    {e:'🐘',cost:15},{e:'🦒',cost:15},{e:'🦓',cost:15},{e:'🦛',cost:15},{e:'🐪',cost:15},{e:'🦏',cost:15},
+    {e:'🦄',cost:25},{e:'🐉',cost:30},{e:'🦖',cost:40}
+  ],
+  buildings:[
+    {e:'🛖',cost:2},{e:'🏠',cost:3},{e:'⛺',cost:2},
+    {e:'🏪',cost:4},{e:'☕',cost:4},{e:'🍦',cost:4},{e:'🍔',cost:5},{e:'🍕',cost:5},
+    {e:'🏥',cost:6},{e:'🏫',cost:6},{e:'⛪',cost:7},{e:'🕌',cost:7},
+    {e:'🏛️',cost:10},{e:'🎪',cost:10},{e:'🏟️',cost:12},
+    {e:'🎡',cost:15},{e:'🎢',cost:15},
+    {e:'🏰',cost:25},{e:'🗼',cost:30},{e:'🏯',cost:25}
+  ],
+  vehicles:[
+    {e:'🚲',cost:2},{e:'🛴',cost:2},{e:'🛹',cost:2},
+    {e:'🚗',cost:3},{e:'🚕',cost:3},{e:'🚙',cost:4},{e:'🚓',cost:4},{e:'🚜',cost:4},
+    {e:'🚌',cost:5},{e:'🚒',cost:5},{e:'🚑',cost:5},{e:'🚐',cost:5},
+    {e:'🚂',cost:8},{e:'🚉',cost:6},
+    {e:'🎈',cost:4},{e:'⛵',cost:5},{e:'🚤',cost:6},
+    {e:'🚁',cost:10},{e:'✈️',cost:12},{e:'🚀',cost:20},{e:'🛸',cost:25}
+  ],
+  nature:[
+    {e:'🌳',cost:1},{e:'🌲',cost:1},{e:'🌴',cost:2},{e:'🌵',cost:2},
+    {e:'🌷',cost:1},{e:'🌹',cost:1},{e:'🌻',cost:1},{e:'🌼',cost:1},{e:'🍄',cost:1},{e:'🪨',cost:1},
+    {e:'⛲',cost:5},{e:'🏖️',cost:6},
+    {e:'⛰️',cost:5},{e:'🏔️',cost:5},{e:'🌋',cost:10},
+    {e:'🗿',cost:8},{e:'🌈',cost:8}
+  ]
+};
 
 function loadZoo(){
   try{
     const s=JSON.parse(localStorage.getItem('kochitty.zoo')||'{}');
     if(typeof s.coins==='number') coins=s.coins;
-    if(Array.isArray(s.items)) zooItems=s.items;
+    if(Array.isArray(s.items)){
+      zooItems = s.items.filter(it=>typeof it.gx==='number' && typeof it.gy==='number').map(it=>({e:it.e, gx:it.gx, gy:it.gy, type:it.type||'animals'}));
+    }
+    if(Array.isArray(s.roads)) roads=new Set(s.roads);
     if(typeof s.name==='string' && s.name) zooName=s.name;
-    if(typeof s.selected==='string' && s.selected) selectedAnimal=s.selected;
+    if(typeof s.selected==='string' && s.selected) selectedEmoji=s.selected;
+    if(typeof s.category==='string' && catalog[s.category]) category=s.category;
   }catch(e){}
 }
 function saveZoo(){
-  try{ localStorage.setItem('kochitty.zoo', JSON.stringify({coins, items:zooItems, name:zooName, selected:selectedAnimal})); }catch(e){}
+  try{ localStorage.setItem('kochitty.zoo', JSON.stringify({coins, items:zooItems, roads:[...roads], name:zooName, selected:selectedEmoji, category})); }catch(e){}
 }
 
 function awardCoins(n, anchorEl){
@@ -465,56 +502,40 @@ function awardCoins(n, anchorEl){
 
 function renderStickers(){
   const box=$('stickers'); box.innerHTML='';
-  animals.forEach(a=>{
+  catalog[category].forEach(a=>{
     const b=document.createElement('button');
     const afford = coins >= a.cost;
-    b.className='sticker' + (afford?'':' locked') + (a.e===selectedAnimal?' selected':'');
+    b.className='sticker' + (afford?'':' locked') + (a.e===selectedEmoji?' selected':'');
     b.innerHTML=a.e+'<span class="badge">🪙'+a.cost+'</span>';
-    b.title = afford ? 'Tap to use this animal' : 'Need '+a.cost+' coins';
+    b.title = afford ? 'Tap to use' : 'Need '+a.cost+' coins';
     b.onclick=()=>{
-      if(coins >= a.cost){ selectedAnimal=a.e; renderStickers(); saveZoo(); }
+      if(coins >= a.cost){ selectedEmoji=a.e; renderStickers(); saveZoo(); }
     };
     box.appendChild(b);
   });
 }
 
-// Canvas
+// Canvas + isometric projection
 const zoo=$('zoo'), zx=zoo.getContext('2d');
 const ZW=zoo.width, ZH=zoo.height;
+const GW=18, GH=14;             // grid in tiles
+const TW=52, TH=26;             // tile width / height (2:1 iso)
+const OX = (GH-1)*TW/2 + 30;    // origin x
+const OY = 70;                  // origin y (leaves room for sky)
+
+function iso(gx, gy){ return {x:(gx-gy)*TW/2 + OX, y:(gx+gy)*TH/2 + OY}; }
+function invIso(sx, sy){
+  const dx=(sx-OX)/(TW/2), dy=(sy-OY)/(TH/2);
+  return {gx:Math.round((dx+dy)/2), gy:Math.round((dy-dx)/2)};
+}
+function inGrid(c){ return c.gx>=0 && c.gy>=0 && c.gx<GW && c.gy<GH; }
+function itemAt(gx,gy){ return zooItems.find(it=>it.gx===gx && it.gy===gy); }
 
 function pos(e){
   const r=zoo.getBoundingClientRect();
   const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
   const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
   return {x:cx/r.width*ZW, y:cy/r.height*ZH};
-}
-function nearest(p){
-  let best=null, bd=40;
-  zooItems.forEach(it=>{ const d=Math.hypot(it.x-p.x, it.y-p.y); if(d<bd){bd=d;best=it;} });
-  return best;
-}
-
-function zooDown(e){
-  e.preventDefault();
-  const p=pos(e);
-  if(zooTool==='place'){
-    const a = animals.find(x=>x.e===selectedAnimal);
-    const cost = a ? a.cost : 1;
-    if(coins < cost){
-      flashZoo('Need '+cost+' 🪙 for '+selectedAnimal+' — solve a sum to earn coins!');
-      return;
-    }
-    coins -= cost;
-    $('coins').textContent=coins;
-    zooItems.push({e:selectedAnimal, x:p.x, y:p.y});
-    renderStickers();
-    drawZoo(); saveZoo();
-  } else if(zooTool==='erase'){
-    const it=nearest(p);
-    if(it){ zooItems=zooItems.filter(x=>x!==it); drawZoo(); saveZoo(); }
-  } else if(zooTool==='move'){
-    dragItem=nearest(p);
-  }
 }
 
 function flashZoo(msg){
@@ -523,15 +544,66 @@ function flashZoo(msg){
   clearTimeout(flashZoo._t);
   flashZoo._t=setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
 }
-function zooMove(e){
-  if(zooTool==='move' && dragItem){
-    e.preventDefault();
-    const p=pos(e);
-    dragItem.x=p.x; dragItem.y=p.y;
-    drawZoo();
+
+function zooDown(e){
+  e.preventDefault();
+  const cell=invIso(pos(e).x, pos(e).y);
+  if(!inGrid(cell)) return;
+  const key=cell.gx+','+cell.gy;
+
+  if(zooTool==='place'){
+    if(itemAt(cell.gx,cell.gy)){ flashZoo('That spot is taken — try another tile.'); return; }
+    const a = catalog[category].find(x=>x.e===selectedEmoji) || catalog[category][0];
+    if(coins < a.cost){ flashZoo('Need '+a.cost+' 🪙 for '+a.e+' — do a sum to earn coins!'); return; }
+    coins -= a.cost; $('coins').textContent=coins;
+    zooItems.push({e:a.e, gx:cell.gx, gy:cell.gy, type:category});
+    renderStickers(); drawZoo(); saveZoo();
+  }
+  else if(zooTool==='road'){
+    if(roads.has(key)) roads.delete(key); else roads.add(key);
+    paintingRoad=true;
+    drawZoo(); saveZoo();
+  }
+  else if(zooTool==='move'){
+    const it=itemAt(cell.gx,cell.gy);
+    if(it) dragItem=it;
+  }
+  else if(zooTool==='erase'){
+    const it=itemAt(cell.gx,cell.gy);
+    if(it){ zooItems=zooItems.filter(x=>x!==it); drawZoo(); saveZoo(); }
+    else if(roads.has(key)){ roads.delete(key); drawZoo(); saveZoo(); }
+    erasingDrag=true;
   }
 }
-function zooUp(){ if(dragItem){ dragItem=null; saveZoo(); } }
+
+function zooMove(e){
+  const cell=invIso(pos(e).x, pos(e).y);
+  if(!inGrid(cell)) return;
+  const key=cell.gx+','+cell.gy;
+  if(zooTool==='move' && dragItem){
+    e.preventDefault();
+    if(dragItem.gx===cell.gx && dragItem.gy===cell.gy) return;
+    const blocker=zooItems.find(it=>it!==dragItem && it.gx===cell.gx && it.gy===cell.gy);
+    if(blocker) return;
+    dragItem.gx=cell.gx; dragItem.gy=cell.gy; drawZoo();
+  }
+  else if(zooTool==='road' && paintingRoad){
+    e.preventDefault();
+    if(!roads.has(key)){ roads.add(key); drawZoo(); }
+  }
+  else if(zooTool==='erase' && erasingDrag){
+    e.preventDefault();
+    const it=itemAt(cell.gx,cell.gy);
+    if(it){ zooItems=zooItems.filter(x=>x!==it); drawZoo(); }
+    else if(roads.has(key)){ roads.delete(key); drawZoo(); }
+  }
+}
+
+function zooUp(){
+  if(dragItem){ dragItem=null; saveZoo(); }
+  if(paintingRoad){ paintingRoad=false; saveZoo(); }
+  if(erasingDrag){ erasingDrag=false; saveZoo(); }
+}
 
 zoo.addEventListener('mousedown', zooDown);
 zoo.addEventListener('mousemove', zooMove);
@@ -540,43 +612,82 @@ zoo.addEventListener('touchstart', zooDown, {passive:false});
 zoo.addEventListener('touchmove', zooMove, {passive:false});
 window.addEventListener('touchend', zooUp);
 
+function drawDiamond(cx, cy, fill, stroke){
+  zx.beginPath();
+  zx.moveTo(cx, cy-TH/2);
+  zx.lineTo(cx+TW/2, cy);
+  zx.lineTo(cx, cy+TH/2);
+  zx.lineTo(cx-TW/2, cy);
+  zx.closePath();
+  zx.fillStyle=fill; zx.fill();
+  if(stroke){ zx.strokeStyle=stroke; zx.lineWidth=1; zx.stroke(); }
+}
+
 function drawZoo(){
-  zx.clearRect(0,0,ZW,ZH);
-  // Sun
+  // sky
+  zx.fillStyle='#cdeeff'; zx.fillRect(0,0,ZW,ZH);
+  // sun
+  zx.fillStyle='rgba(255,220,80,0.55)';
+  zx.beginPath(); zx.arc(60, 50, 38, 0, Math.PI*2); zx.fill();
   zx.fillStyle='#fff5a8';
-  zx.beginPath(); zx.arc(ZW-70, 60, 36, 0, Math.PI*2); zx.fill();
-  zx.fillStyle='rgba(255,220,80,0.4)';
-  zx.beginPath(); zx.arc(ZW-70, 60, 50, 0, Math.PI*2); zx.fill();
-  // Clouds
-  zx.fillStyle='rgba(255,255,255,0.9)';
-  [[120,55,26],[300,80,22],[500,45,28]].forEach(([cx,cy,r])=>{
+  zx.beginPath(); zx.arc(60, 50, 26, 0, Math.PI*2); zx.fill();
+  // clouds
+  zx.fillStyle='rgba(255,255,255,0.92)';
+  [[280,40,22],[520,55,26],[760,30,20]].forEach(([cx,cy,r])=>{
     zx.beginPath();
     zx.arc(cx,cy,r,0,7);
-    zx.arc(cx+r*0.8,cy+4,r*0.75,0,7);
-    zx.arc(cx-r*0.8,cy+4,r*0.75,0,7);
+    zx.arc(cx+r*0.8,cy+4,r*0.7,0,7);
+    zx.arc(cx-r*0.8,cy+4,r*0.7,0,7);
     zx.fill();
   });
-  // Fence along grass top
-  const grassY = ZH*0.55;
-  zx.fillStyle='#8b5a2b';
-  for(let x=10; x<ZW-10; x+=22){
-    zx.fillRect(x, grassY-12, 4, 18);
+
+  // ground tiles
+  for(let gy=0;gy<GH;gy++){
+    for(let gx=0;gx<GW;gx++){
+      const p=iso(gx,gy);
+      const key=gx+','+gy;
+      if(roads.has(key)){
+        drawDiamond(p.x, p.y, '#666', '#444');
+      } else {
+        const checker = (gx+gy)%2;
+        drawDiamond(p.x, p.y, checker?'#7ec25e':'#8acf68', '#5fa543');
+      }
+    }
   }
-  zx.fillRect(10, grassY-6, ZW-20, 3);
-  // Grass tufts
-  zx.fillStyle='#2f7a1f';
-  for(let i=0;i<30;i++){
-    const x = (i*27 + 15) % (ZW-20) + 10;
-    const y = ZH - 6 - ((i*11)%14);
-    zx.beginPath();
-    zx.moveTo(x,y); zx.lineTo(x-4,y-9); zx.lineTo(x,y-6); zx.lineTo(x+4,y-9); zx.closePath();
-    zx.fill();
-  }
-  // Animals (sort by y so nearer-bottom render in front)
-  zx.font='38px serif'; zx.textAlign='center'; zx.textBaseline='middle';
-  [...zooItems].sort((a,b)=>a.y-b.y).forEach(it=>{
-    zx.fillText(it.e, it.x, it.y);
+
+  // road markings — yellow dash in the middle of each road tile
+  zx.strokeStyle='#ffe14d'; zx.lineWidth=2; zx.setLineDash([5,4]);
+  roads.forEach(key=>{
+    const [gx,gy]=key.split(',').map(Number);
+    const p=iso(gx,gy);
+    // connect across to road neighbors; otherwise just put a small dot
+    const neighbors=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>roads.has((gx+dx)+','+(gy+dy)));
+    if(neighbors.length===0){
+      zx.fillStyle='#ffe14d'; zx.beginPath(); zx.arc(p.x,p.y,3,0,7); zx.fill();
+    } else {
+      neighbors.forEach(([dx,dy])=>{
+        const q=iso(gx+dx,gy+dy);
+        zx.beginPath(); zx.moveTo(p.x,p.y); zx.lineTo((p.x+q.x)/2,(p.y+q.y)/2); zx.stroke();
+      });
+    }
   });
+  zx.setLineDash([]);
+
+  // items — sort by depth (gx+gy) so back ones render first
+  const sorted=[...zooItems].sort((a,b)=>(a.gx+a.gy)-(b.gx+b.gy));
+  sorted.forEach(it=>{
+    const p=iso(it.gx, it.gy);
+    // shadow
+    zx.fillStyle='rgba(0,0,0,0.2)';
+    zx.beginPath(); zx.ellipse(p.x, p.y+4, 16, 5, 0, 0, Math.PI*2); zx.fill();
+    // bigger emoji for buildings & vehicles, regular for animals/nature
+    const size = (it.type==='buildings') ? 44 : (it.type==='vehicles') ? 34 : 32;
+    zx.font = size+'px serif';
+    zx.textAlign='center'; zx.textBaseline='alphabetic';
+    zx.fillText(it.e, p.x, p.y+8);
+  });
+
+  // highlight selected tile under cursor? skipped — keep simple
 }
 
 document.querySelectorAll('.tool').forEach(b=>{
@@ -586,19 +697,34 @@ document.querySelectorAll('.tool').forEach(b=>{
     zooTool=b.dataset.tool;
   };
 });
+document.querySelectorAll('.cat-tab').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.cat-tab').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    category=b.dataset.cat;
+    if(!catalog[category].some(a=>a.e===selectedEmoji)){
+      selectedEmoji=catalog[category][0].e;
+    }
+    renderStickers(); saveZoo();
+  };
+});
 $('nameBtn').onclick=()=>{
   const v=$('nameInput').value.trim();
   if(v){ zooName = v+' 🦁'; $('zooName').textContent=zooName; saveZoo(); }
 };
 $('clearZoo').onclick=()=>{
-  if(zooItems.length===0 || confirm('Clear all the animals from your zoo?')){
-    zooItems=[]; drawZoo(); saveZoo();
+  if((zooItems.length===0 && roads.size===0) || confirm('Clear everything from your zoo?')){
+    zooItems=[]; roads=new Set(); drawZoo(); saveZoo();
   }
 };
 
 loadZoo();
 $('coins').textContent=coins;
 $('zooName').textContent=zooName;
+// sync active category tab + tool
+document.querySelectorAll('.cat-tab').forEach(b=>{
+  b.classList.toggle('active', b.dataset.cat===category);
+});
 renderStickers();
 drawZoo();
 
