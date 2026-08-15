@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monopoly Banker</title>
+<style>
+  :root {
+    --paper:    #E6E8DF;
+    --card:     #FBFAF5;
+    --card-2:   #F1F0E8;
+    --ink:      #16201B;
+    --ink-soft: #55605A;
+    --ink-faint:#8A948E;
+    --rule:     #C7CCC0;
+    --rule-soft:#DCDFD4;
+    --credit:   #1D6B4C;
+    --debit:    #A63A22;
+    --focus:    #1F3C88;
+
+    --band-h: 30px;
+    --display: "Futura", "Avenir Next Condensed", "Helvetica Neue", Arial, sans-serif;
+    --body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --num: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:    #0F1310;
+      --card:     #1A201B;
+      --card-2:   #222923;
+      --ink:      #E7EAE1;
+      --ink-soft: #A0A99F;
+      --ink-faint:#6C766D;
+      --rule:     #333B34;
+      --rule-soft:#2A312B;
+      --credit:   #57BE8E;
+      --debit:    #E0765A;
+      --focus:    #8AA6F0;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:    #0F1310;
+    --card:     #1A201B;
+    --card-2:   #222923;
+    --ink:      #E7EAE1;
+    --ink-soft: #A0A99F;
+    --ink-faint:#6C766D;
+    --rule:     #333B34;
+    --rule-soft:#2A312B;
+    --credit:   #57BE8E;
+    --debit:    #E0765A;
+    --focus:    #8AA6F0;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 20px 16px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  /* ---------- header ---------- */
+
+  .site-nav {
+    margin-bottom: -12px;
+  }
+
+  .site-nav a {
+    font-family: var(--display);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--ink-soft);
+  }
+
+  .site-nav a:hover { color: var(--ink); }
+
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .masthead h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 28px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  .masthead .sub {
+    margin: 6px 0 0;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .head-stats {
+    display: flex;
+    gap: 18px;
+    align-items: flex-end;
+  }
+
+  .stat { text-align: right; }
+
+  .stat .k {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .stat .v {
+    display: block;
+    font-family: var(--num);
+    font-variant-numeric: tabular-nums;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  /* ---------- deed tiles ---------- */
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+    gap: 12px;
+  }
+
+  .tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 10px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    text-align: left;
+    overflow: hidden;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+
+  .tile:hover { transform: translateY(-2px); }
+
+  .tile .band {
+    height: var(--band-h);
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+  }
+
+  .tile .band-name {
+    font-family: var(--display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #16201B;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    mix-blend-mode: normal;
+  }
+
+  .tile .band-name.on-dark { color: #FBFAF5; }
+
+  .tile .bal {
+    font-family: var(--num);
+    font-variant-numeric: tabular-nums;
+    font-size: 25px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    padding: 12px 10px 0;
+    color: var(--ink);
+  }
+
+  .tile .bal.broke { color: var(--debit); }
+
+  .tile .role {
+    min-height: 15px;
+    padding: 2px 10px 0;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .tile[data-sel="from"] {
+    border-color: var(--debit);
+    box-shadow: inset 0 0 0 2px var(--debit);
+  }
+
+  .tile[data-sel="from"] .role { color: var(--debit); }
+
+  .tile[data-sel="to"] {
+    border-color: var(--credit);
+    box-shadow: inset 0 0 0 2px var(--credit);
+  }
+
+  .tile[data-sel="to"] .role { color: var(--credit); }
+
+  .tile.bank .band {
+    background:
+      repeating-linear-gradient(135deg, var(--rule) 0 5px, var(--card-2) 5px 10px);
+  }
+
+  .tile.bank .bal { color: var(--ink-soft); }
+
+  .tile.pot .band { background: var(--card-2); }
+
+  .tile.bank .band-name,
+  .tile.pot .band-name { color: var(--ink); }
+
+  /* ---------- console ---------- */
+
+  .console {
+    display: grid;
+    grid-template-columns: 216px 1fr;
+    gap: 16px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 16px;
+  }
+
+  .pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .pad button {
+    padding: 13px 0;
+    background: var(--card-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: 2px;
+    font-family: var(--num);
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .pad button:active { background: var(--rule-soft); }
+
+  .desk {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .readout {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 8px;
+  }
+
+  .readout .amt {
+    font-family: var(--num);
+    font-variant-numeric: tabular-nums;
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .readout .amt.zero { color: var(--ink-faint); }
+
+  .readout .route {
+    font-family: var(--display);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: right;
+    color: var(--ink-soft);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chip {
+    padding: 6px 11px;
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    font-family: var(--num);
+    font-size: 13px;
+  }
+
+  .chip:hover { border-color: var(--ink-soft); }
+
+  .chip.tag {
+    font-family: var(--body);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .chip.tag[aria-pressed="true"] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--card);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 11px 16px;
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    font-family: var(--display);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .btn:hover { border-color: var(--ink-soft); }
+
+  .btn.primary {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--card);
+    flex: 1 1 190px;
+  }
+
+  .btn.primary:disabled {
+    background: transparent;
+    border-color: var(--rule-soft);
+    color: var(--ink-faint);
+    cursor: not-allowed;
+  }
+
+  /* ---------- ledger ---------- */
+
+  .ledger-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+
+  h2 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .ledger-scroll { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 7px 8px;
+    border-top: 1px solid var(--rule-soft);
+    white-space: nowrap;
+  }
+
+  td.money {
+    font-family: var(--num);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  td.when { color: var(--ink-faint); font-family: var(--num); font-size: 12px; }
+  td.note { color: var(--ink-soft); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+  td.act { text-align: right; width: 1%; }
+
+  .undo {
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 2px 8px;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .undo:hover { border-color: var(--debit); color: var(--debit); }
+
+  .empty {
+    padding: 18px 8px;
+    color: var(--ink-faint);
+    font-size: 13px;
+    white-space: normal;
+  }
+
+  /* ---------- setup ---------- */
+
+  details.setup {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--card);
+  }
+
+  details.setup > summary {
+    list-style: none;
+    padding: 12px 16px;
+    font-family: var(--display);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  details.setup > summary::-webkit-details-marker { display: none; }
+  details.setup[open] > summary { border-bottom: 1px solid var(--rule); }
+
+  .setup-body {
+    padding: 14px 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .roster {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .roster-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .swatches { display: flex; gap: 4px; }
+
+  .swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 2px;
+    border: 1px solid var(--rule);
+    padding: 0;
+  }
+
+  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
+
+  input[type="text"], input[type="number"] {
+    padding: 8px 10px;
+    background: var(--card-2);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    min-width: 0;
+  }
+
+  .roster-row input[type="text"] { flex: 1 1 120px; }
+
+  .setup-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .setup-line label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .danger { color: var(--debit); border-color: var(--debit); }
+
+  @media (max-width: 640px) {
+    /* On a phone the running total belongs above the thumb keypad. */
+    .console { grid-template-columns: 1fr; }
+    .desk { order: 1; }
+    .pad { order: 2; }
+    .readout .amt { font-size: 34px; }
+    .masthead { align-items: flex-start; }
+    .btn.primary { flex-basis: 100%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="site-nav"><a href="index.html">&larr; Home</a></nav>
+
+  <header class="masthead">
+    <div>
+      <h1>Monopoly Banker</h1>
+      <p class="sub" id="subline">Tap who pays, tap who gets paid, enter the amount</p>
+    </div>
+    <div class="head-stats">
+      <div class="stat"><span class="k">Cash in play</span><span class="v" id="statCash">$0</span></div>
+      <div class="stat"><span class="k">Moves</span><span class="v" id="statMoves">0</span></div>
+    </div>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+
+  <section class="console">
+    <div class="pad" id="pad"></div>
+    <div class="desk">
+      <div class="readout">
+        <span class="amt zero" id="amount">$0</span>
+        <span class="route" id="route">No one selected</span>
+      </div>
+      <div class="chips" id="quickAmounts"></div>
+      <div class="chips" id="tags"></div>
+      <div class="actions">
+        <button class="btn primary" id="record" disabled>Record payment</button>
+        <button class="btn" id="swap">Swap</button>
+        <button class="btn" id="passgo">Pass GO +200</button>
+        <button class="btn" id="clear">Clear</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="ledger-head">
+      <h2>Ledger</h2>
+      <span class="sub" id="ledgerCount"></span>
+    </div>
+    <div class="ledger-scroll">
+      <table>
+        <thead>
+          <tr><th>Time</th><th>From</th><th>To</th><th style="text-align:right">Amount</th><th>For</th><th></th></tr>
+        </thead>
+        <tbody id="ledger"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details class="setup">
+    <summary>Players &amp; game settings</summary>
+    <div class="setup-body">
+      <div class="roster" id="roster"></div>
+      <div class="setup-line">
+        <button class="btn" id="addPlayer">Add player</button>
+        <label>Starting cash
+          <input type="number" id="startCash" min="0" step="50" style="width:110px">
+        </label>
+        <span id="startNote"></span>
+      </div>
+      <div class="setup-line">
+        <button class="btn danger" id="reset">New game</button>
+        <span>Clears the ledger and sets everyone back to starting cash.</span>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var COLORS = [
+    { hex: "#8B5A2B", dark: true,  name: "Brown"      },
+    { hex: "#8FCDEA", dark: false, name: "Light blue" },
+    { hex: "#D4237A", dark: true,  name: "Pink"       },
+    { hex: "#E8801F", dark: false, name: "Orange"     },
+    { hex: "#C8102E", dark: true,  name: "Red"        },
+    { hex: "#F4C430", dark: false, name: "Yellow"     },
+    { hex: "#1E7A3C", dark: true,  name: "Green"      },
+    { hex: "#1F3C88", dark: true,  name: "Dark blue"  }
+  ];
+
+  // Built from char codes so the file stays pure ASCII and cannot be mangled
+  // by a server that serves it without a charset.
+  var INFINITY_GLYPH = String.fromCharCode(8734);   // infinity
+  var BACKSPACE_GLYPH = String.fromCharCode(9003);  // erase-left key
+  var ARROW = String.fromCharCode(8594);            // rightwards arrow
+  var ELLIPSIS = String.fromCharCode(8230);
+  var EMDASH = String.fromCharCode(8212);
+
+  var TAGS = ["Rent", "Property", "Tax", "Chance", "Chest", "Jail", "Trade"];
+  var QUICKS = [1, 5, 10, 20, 50, 100, 200, 500];
+  var KEY = "monopoly-banker-v1";
+
+  var state = {
+    start: 1500,
+    players: [
+      { id: "p1", name: "Player 1", color: 0 },
+      { id: "p2", name: "Player 2", color: 3 },
+      { id: "p3", name: "Player 3", color: 6 },
+      { id: "p4", name: "Player 4", color: 7 }
+    ],
+    entries: [],
+    seq: 5
+  };
+
+  var sel = { from: null, to: null };
+  var digits = "";
+  var tag = null;
+
+  /* ---------- persistence ---------- */
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      if (saved && Array.isArray(saved.players) && Array.isArray(saved.entries)) {
+        state = saved;
+      }
+    } catch (e) { /* start fresh */ }
+  }
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  /* ---------- money ---------- */
+
+  function money(n) {
+    var sign = n < 0 ? "-" : "";
+    return sign + "$" + Math.abs(n).toLocaleString("en-US");
+  }
+
+  function balances() {
+    var b = { parking: 0 };
+    state.players.forEach(function (p) { b[p.id] = state.start; });
+    state.entries.forEach(function (e) {
+      if (Object.prototype.hasOwnProperty.call(b, e.from)) b[e.from] -= e.amount;
+      if (Object.prototype.hasOwnProperty.call(b, e.to)) b[e.to] += e.amount;
+    });
+    return b;
+  }
+
+  function partyName(id) {
+    if (id === "bank") return "Bank";
+    if (id === "parking") return "Free Parking";
+    var p = state.players.filter(function (x) { return x.id === id; })[0];
+    return p ? p.name : "Removed player";
+  }
+
+  function amount() { return digits === "" ? 0 : parseInt(digits, 10); }
+
+  /* ---------- tiles ---------- */
+
+  function tileEl(id, label, bandStyle, bandDark, bal, extraClass) {
+    var b = document.createElement("button");
+    b.className = "tile" + (extraClass ? " " + extraClass : "");
+    b.setAttribute("data-id", id);
+    if (sel.from === id) b.setAttribute("data-sel", "from");
+    if (sel.to === id) b.setAttribute("data-sel", "to");
+
+    var band = document.createElement("span");
+    band.className = "band";
+    if (bandStyle) band.style.background = bandStyle;
+    var nm = document.createElement("span");
+    nm.className = "band-name" + (bandDark ? " on-dark" : "");
+    nm.textContent = label;
+    band.appendChild(nm);
+
+    var v = document.createElement("span");
+    v.className = "bal" + (typeof bal === "number" && bal < 0 ? " broke" : "");
+    v.textContent = typeof bal === "number" ? money(bal) : bal;
+
+    var role = document.createElement("span");
+    role.className = "role";
+    role.textContent = sel.from === id ? "Pays" : (sel.to === id ? "Receives" : "");
+
+    b.appendChild(band);
+    b.appendChild(v);
+    b.appendChild(role);
+    b.addEventListener("click", function () { pick(id); });
+    return b;
+  }
+
+  function renderTiles() {
+    var host = document.getElementById("tiles");
+    var b = balances();
+    host.textContent = "";
+
+    state.players.forEach(function (p) {
+      var c = COLORS[p.color % COLORS.length];
+      host.appendChild(tileEl(p.id, p.name, c.hex, c.dark, b[p.id]));
+    });
+
+    host.appendChild(tileEl("bank", "Bank", "", false, INFINITY_GLYPH, "bank"));
+    host.appendChild(tileEl("parking", "Free Parking", "", false, b.parking, "pot"));
+
+    var cash = state.players.reduce(function (sum, p) { return sum + b[p.id]; }, 0);
+    document.getElementById("statCash").textContent = money(cash);
+    document.getElementById("statMoves").textContent = String(state.entries.length);
+  }
+
+  /* ---------- selection + console ---------- */
+
+  function pick(id) {
+    if (sel.from === id) { sel.from = sel.to; sel.to = null; }
+    else if (sel.to === id) { sel.to = null; }
+    else if (sel.from === null) { sel.from = id; }
+    else { sel.to = id; }
+    renderTiles();
+    renderConsole();
+  }
+
+  function renderConsole() {
+    var amtEl = document.getElementById("amount");
+    amtEl.textContent = money(amount());
+    amtEl.className = "amt" + (amount() === 0 ? " zero" : "");
+
+    var route = document.getElementById("route");
+    if (sel.from && sel.to) route.textContent = partyName(sel.from) + "  " + ARROW + "  " + partyName(sel.to);
+    else if (sel.from) route.textContent = partyName(sel.from) + " pays " + ELLIPSIS + " who?";
+    else if (sel.to) route.textContent = ELLIPSIS + " who pays " + partyName(sel.to) + "?";
+    else route.textContent = "No one selected";
+
+    document.getElementById("record").disabled = !(sel.from && sel.to && amount() > 0);
+    document.getElementById("passgo").disabled = !sel.from && !sel.to;
+
+    Array.prototype.forEach.call(document.querySelectorAll(".chip.tag"), function (el) {
+      el.setAttribute("aria-pressed", String(el.getAttribute("data-tag") === tag));
+    });
+  }
+
+  function buildPad() {
+    var pad = document.getElementById("pad");
+    var keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", BACKSPACE_GLYPH];
+    keys.forEach(function (k) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = k;
+      b.addEventListener("click", function () {
+        if (k === BACKSPACE_GLYPH) digits = digits.slice(0, -1);
+        else if (digits.length + k.length <= 7) digits = (digits + k).replace(/^0+(?=\d)/, "");
+        renderConsole();
+      });
+      pad.appendChild(b);
+    });
+
+    var quick = document.getElementById("quickAmounts");
+    QUICKS.forEach(function (n) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = "+" + n;
+      b.addEventListener("click", function () {
+        digits = String(Math.min(amount() + n, 9999999));
+        renderConsole();
+      });
+      quick.appendChild(b);
+    });
+
+    var tagHost = document.getElementById("tags");
+    TAGS.forEach(function (t) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip tag";
+      b.setAttribute("data-tag", t);
+      b.setAttribute("aria-pressed", "false");
+      b.textContent = t;
+      b.addEventListener("click", function () {
+        tag = (tag === t) ? null : t;
+        renderConsole();
+      });
+      tagHost.appendChild(b);
+    });
+  }
+
+  /* ---------- entries ---------- */
+
+  function commit(from, to, amt, note) {
+    state.entries.unshift({
+      id: "e" + (state.seq++),
+      from: from,
+      to: to,
+      amount: amt,
+      note: note || "",
+      ts: Date.now()
+    });
+    save();
+    renderTiles();
+    renderLedger();
+  }
+
+  function record() {
+    if (!(sel.from && sel.to && amount() > 0)) return;
+    commit(sel.from, sel.to, amount(), tag);
+    digits = "";
+    tag = null;
+    sel.from = null;
+    sel.to = null;
+    renderTiles();
+    renderConsole();
+  }
+
+  function passGo() {
+    var who = sel.from || sel.to;
+    if (!who || who === "bank") return;
+    commit("bank", who, 200, "GO");
+    sel.from = null;
+    sel.to = null;
+    renderTiles();
+    renderConsole();
+  }
+
+  function undo(id) {
+    state.entries = state.entries.filter(function (e) { return e.id !== id; });
+    save();
+    renderTiles();
+    renderLedger();
+  }
+
+  function clock(ts) {
+    var d = new Date(ts);
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+
+  function renderLedger() {
+    var body = document.getElementById("ledger");
+    body.textContent = "";
+    document.getElementById("ledgerCount").textContent =
+      state.entries.length ? state.entries.length + " recorded" : "";
+
+    if (!state.entries.length) {
+      var tr = document.createElement("tr");
+      var td = document.createElement("td");
+      td.className = "empty";
+      td.colSpan = 6;
+      td.textContent = "Nothing recorded yet. Every payment you record shows up here and can be undone.";
+      tr.appendChild(td);
+      body.appendChild(tr);
+      return;
+    }
+
+    state.entries.forEach(function (e) {
+      var tr = document.createElement("tr");
+
+      var when = document.createElement("td");
+      when.className = "when";
+      when.textContent = clock(e.ts);
+
+      var from = document.createElement("td");
+      from.textContent = partyName(e.from);
+
+      var to = document.createElement("td");
+      to.textContent = partyName(e.to);
+
+      var amt = document.createElement("td");
+      amt.className = "money";
+      amt.textContent = money(e.amount);
+
+      var note = document.createElement("td");
+      note.className = "note";
+      note.textContent = e.note || EMDASH;
+
+      var act = document.createElement("td");
+      act.className = "act";
+      var u = document.createElement("button");
+      u.className = "undo";
+      u.textContent = "Undo";
+      u.setAttribute("aria-label", "Undo " + money(e.amount) + " from " + partyName(e.from) + " to " + partyName(e.to));
+      u.addEventListener("click", function () { undo(e.id); });
+      act.appendChild(u);
+
+      [when, from, to, amt, note, act].forEach(function (c) { tr.appendChild(c); });
+      body.appendChild(tr);
+    });
+  }
+
+  /* ---------- setup ---------- */
+
+  function renderRoster() {
+    var host = document.getElementById("roster");
+    host.textContent = "";
+
+    state.players.forEach(function (p, i) {
+      var row = document.createElement("div");
+      row.className = "roster-row";
+
+      var name = document.createElement("input");
+      name.type = "text";
+      name.value = p.name;
+      name.setAttribute("aria-label", "Player name");
+      name.addEventListener("input", function () {
+        p.name = name.value || "Player " + (i + 1);
+        save();
+        renderTiles();
+        renderConsole();
+      });
+
+      var sw = document.createElement("div");
+      sw.className = "swatches";
+      COLORS.forEach(function (c, ci) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "swatch";
+        b.style.background = c.hex;
+        b.title = c.name;
+        b.setAttribute("aria-label", c.name);
+        b.setAttribute("aria-pressed", String(p.color === ci));
+        b.addEventListener("click", function () {
+          p.color = ci;
+          save();
+          renderTiles();
+          renderRoster();
+        });
+        sw.appendChild(b);
+      });
+
+      var rm = document.createElement("button");
+      rm.className = "undo";
+      rm.textContent = "Remove";
+      rm.addEventListener("click", function () {
+        state.players = state.players.filter(function (x) { return x.id !== p.id; });
+        if (sel.from === p.id) sel.from = null;
+        if (sel.to === p.id) sel.to = null;
+        save();
+        renderAll();
+      });
+
+      row.appendChild(name);
+      row.appendChild(sw);
+      row.appendChild(rm);
+      host.appendChild(row);
+    });
+
+    document.getElementById("startCash").value = state.start;
+    document.getElementById("startNote").textContent =
+      state.entries.length ? "Changing this re-bases everyone's balance." : "";
+  }
+
+  function renderAll() {
+    renderTiles();
+    renderConsole();
+    renderLedger();
+    renderRoster();
+  }
+
+  /* ---------- wiring ---------- */
+
+  document.getElementById("record").addEventListener("click", record);
+  document.getElementById("passgo").addEventListener("click", passGo);
+  document.getElementById("swap").addEventListener("click", function () {
+    var t = sel.from; sel.from = sel.to; sel.to = t;
+    renderTiles();
+    renderConsole();
+  });
+  document.getElementById("clear").addEventListener("click", function () {
+    digits = ""; tag = null; sel.from = null; sel.to = null;
+    renderTiles();
+    renderConsole();
+  });
+
+  document.getElementById("addPlayer").addEventListener("click", function () {
+    var used = state.players.map(function (p) { return p.color; });
+    var free = 0;
+    for (var i = 0; i < COLORS.length; i++) { if (used.indexOf(i) === -1) { free = i; break; } }
+    state.players.push({
+      id: "p" + (state.seq++),
+      name: "Player " + (state.players.length + 1),
+      color: free
+    });
+    save();
+    renderAll();
+  });
+
+  document.getElementById("startCash").addEventListener("change", function (ev) {
+    var v = parseInt(ev.target.value, 10);
+    if (isNaN(v) || v < 0) { ev.target.value = state.start; return; }
+    state.start = v;
+    save();
+    renderAll();
+  });
+
+  var resetBtn = document.getElementById("reset");
+  var armed = false;
+  resetBtn.addEventListener("click", function () {
+    if (!armed) {
+      armed = true;
+      resetBtn.textContent = "Tap again to wipe the ledger";
+      setTimeout(function () { armed = false; resetBtn.textContent = "New game"; }, 4000);
+      return;
+    }
+    armed = false;
+    resetBtn.textContent = "New game";
+    state.entries = [];
+    digits = ""; tag = null; sel.from = null; sel.to = null;
+    save();
+    renderAll();
+  });
+
+  document.addEventListener("keydown", function (ev) {
+    if (ev.target && /^(INPUT|TEXTAREA)$/.test(ev.target.tagName)) return;
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+
+    if (ev.key >= "0" && ev.key <= "9") {
+      if (digits.length < 7) digits = (digits + ev.key).replace(/^0+(?=\d)/, "");
+      renderConsole();
+    } else if (ev.key === "Backspace") {
+      ev.preventDefault();
+      digits = digits.slice(0, -1);
+      renderConsole();
+    } else if (ev.key === "Enter") {
+      ev.preventDefault();
+      record();
+    } else if (ev.key === "Escape") {
+      digits = ""; sel.from = null; sel.to = null; tag = null;
+      renderTiles();
+      renderConsole();
+    }
+  });
+
+  load();
+  buildPad();
+  renderAll();
+})();
+</script>
+</body>
+</html>
