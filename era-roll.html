@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Era Roll Basketball</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Big+Shoulders+Display:wght@600;800;900&family=Chivo+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: an arena at night. A maple-floor hero, then scoreboard panels on blue-black.
+     Single dark look by choice: the floor and the LED board read the same on any host theme. */
+  :root {
+    --night:   #0C1016;
+    --panel:   #151B24;
+    --panel-2: #1C2430;
+    --line:    #2A3341;
+    --chalk:   #ECEFF3;
+    --muted:   #95A1B2;
+    --faint:   #5F6B7C;
+    --maple:   #D59C60;
+    --maple-2: #BF8247;
+    --maple-3: #C98F55;
+    --floor-ink: #22150A;
+    --court-line: rgba(255, 250, 240, 0.62);
+    --led:     #FFB627;
+    --led-dim: #5A4517;
+    --win:     #45C482;
+    --loss:    #E65B50;
+    --e80: #2EC4B6;
+    --e90: #B583FF;
+    --e00: #4EA8FF;
+    --e10: #FF7A59;
+    --e20: #F2689F;
+
+    --display: "Big Shoulders Display", Impact, "Arial Narrow", sans-serif;
+    --body: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "Chivo Mono", ui-monospace, Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { background: var(--night); color: var(--chalk); }
+  body {
+    margin: 0;
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--led); outline-offset: 2px; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  /* ---------- buttons & chips ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: 0; border-radius: 6px;
+    padding: 12px 22px;
+    font-family: var(--display); font-weight: 800; font-size: 20px;
+    letter-spacing: 0.06em; text-transform: uppercase; line-height: 1;
+    background: var(--led); color: var(--night);
+    transition: transform .12s ease, filter .12s ease;
+  }
+  .btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn:disabled { opacity: .4; }
+  .btn.ghost { background: transparent; color: var(--chalk); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .btn.ghost:hover:not(:disabled) { box-shadow: inset 0 0 0 1.5px var(--muted); }
+  .btn.small { font-size: 16px; padding: 9px 14px; }
+  .btn.dark { background: var(--floor-ink); color: var(--led); }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted);
+    white-space: nowrap;
+  }
+  .chip.era { border-color: var(--era, var(--line)); color: var(--era, var(--muted)); }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
+  }
+
+  /* ---------- home: the floor ---------- */
+  .floor {
+    position: relative; overflow: hidden;
+    color: var(--floor-ink);
+    background:
+      linear-gradient(180deg, rgba(255,240,215,.16), rgba(0,0,0,.10)),
+      repeating-linear-gradient(90deg, transparent 0 57px, rgba(70,35,8,.20) 57px 58px),
+      repeating-linear-gradient(90deg, var(--maple) 0 174px, var(--maple-2) 174px 290px, var(--maple-3) 290px 406px, var(--maple) 406px 580px);
+    border-bottom: 6px solid var(--floor-ink);
+  }
+  .floor svg.court { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .floor .wrap { position: relative; padding-block: 48px 56px; display: grid; gap: 32px; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: center; }
+  .site-link {
+    position: absolute; top: 16px; left: max(16px, env(safe-area-inset-left, 0px));
+    font-family: var(--display); font-weight: 800; font-size: 14px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--floor-ink); text-decoration: none; opacity: .75;
+  }
+  .site-link:hover { opacity: 1; }
+  .logo {
+    font-family: var(--display); font-weight: 900;
+    font-size: clamp(76px, 15vw, 176px);
+    line-height: .82; letter-spacing: -.01em; text-transform: uppercase;
+  }
+  .logo span { display: block; }
+  .logo .sub {
+    font-size: .26em; letter-spacing: .32em; font-weight: 800; margin-top: .45em; padding-left: .08em;
+  }
+  .tagline { font-size: 19px; font-weight: 500; max-width: 30ch; margin: 22px 0 26px; line-height: 1.4; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .hero-meta { font-size: 13px; font-weight: 600; letter-spacing: .04em; opacity: .8; }
+
+  /* scoreboard (LED) */
+  .board {
+    background: #090B0F; border-radius: 12px; padding: 18px;
+    box-shadow: 0 0 0 4px var(--floor-ink), 0 24px 50px rgba(0,0,0,.35);
+    color: var(--led);
+  }
+  .board .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .reel {
+    background: #12100A; border-radius: 6px; padding: 10px 12px; min-width: 0;
+    box-shadow: inset 0 0 0 1px #2B2410;
+  }
+  .reel .k { font-family: var(--display); font-weight: 700; font-size: 12px; letter-spacing: .2em; color: #A47A1D; }
+  .reel .v {
+    font-family: var(--display); font-weight: 800; font-size: 30px; line-height: 1.05; text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(255, 182, 39, .45);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .reel.wide { grid-column: 1 / -1; }
+  .reel.spin .v { animation: flick .08s steps(2) infinite; }
+  @keyframes flick { 50% { opacity: .55; } }
+  .board .foot { margin-top: 12px; display: flex; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 12px; color: #A47A1D; flex-wrap: wrap; }
+
+  /* ---------- home: below floor ---------- */
+  .home-body { padding-block: 40px 56px; display: grid; gap: 44px; }
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .step { padding: 16px 16px 18px; border-top: 3px solid var(--led); background: var(--panel); border-radius: 0 0 8px 8px; }
+  .step .n { font-family: var(--display); font-weight: 900; font-size: 34px; color: var(--led); line-height: 1; }
+  .step h3 { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: .03em; text-transform: uppercase; margin: 6px 0 4px; }
+  .step p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .sec-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-family: var(--display); font-weight: 800; font-size: 34px; text-transform: uppercase; letter-spacing: .02em; line-height: 1; }
+  .sec-head p { margin: 4px 0 0; color: var(--muted); max-width: 60ch; }
+
+  .eras { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+  .era-col { display: grid; gap: 8px; align-content: start; }
+  .era-col h3 { font-family: var(--display); font-weight: 900; font-size: 28px; color: var(--era); line-height: 1; padding-bottom: 6px; border-bottom: 2px solid var(--era); }
+  .legend {
+    background: var(--panel); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px;
+  }
+  .legend .t { font-weight: 700; font-size: 14px; line-height: 1.25; }
+  .legend .s { font-size: 12px; color: var(--muted); }
+  .legend .r { font-family: var(--mono); font-size: 12px; color: var(--led); }
+
+  .best { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; background: var(--panel); border-radius: 8px; padding: 14px 16px; }
+  .best b { font-family: var(--display); font-size: 24px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; color: var(--led); }
+  .fine { color: var(--faint); font-size: 12px; max-width: 70ch; }
+
+  /* ---------- game shell ---------- */
+  .topbar { border-bottom: 1px solid var(--line); background: var(--panel); }
+  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px; flex-wrap: wrap; }
+  .mark { font-family: var(--display); font-weight: 900; font-size: 24px; letter-spacing: .02em; text-transform: uppercase; color: var(--led); background: none; border: 0; padding: 0; }
+  .progress { display: flex; gap: 4px; flex-wrap: wrap; }
+  .progress span {
+    font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--faint); padding: 4px 10px; border-radius: 4px;
+  }
+  .progress span.on { color: var(--night); background: var(--led); }
+  .progress span.done { color: var(--muted); }
+  .screen { padding-block: 26px 64px; display: grid; gap: 22px; }
+  .screen h1 { font-family: var(--display); font-weight: 900; font-size: clamp(36px, 6vw, 56px); text-transform: uppercase; line-height: .95; }
+  .lede { color: var(--muted); margin: 6px 0 0; max-width: 62ch; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  .panel > h2 { font-family: var(--display); font-weight: 800; font-size: 22px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+
+  /* draft layout */
+  .draft-grid { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .slots { display: grid; gap: 8px; }
+  .slot {
+    display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+    background: var(--panel-2); border-radius: 8px; padding: 8px 10px; min-height: 58px;
+  }
+  .slot.empty { background: transparent; border: 1.5px dashed var(--line); color: var(--faint); }
+  .slot .who { min-width: 0; }
+  .slot .who b { display: block; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot .who small { color: var(--muted); font-size: 12px; }
+  .ovr {
+    font-family: var(--display); font-weight: 900; font-size: 24px; line-height: 1;
+    width: 44px; height: 44px; display: grid; place-items: center; border-radius: 8px;
+    background: #090B0F; color: var(--led); text-shadow: 0 0 10px rgba(255,182,39,.4);
+  }
+  .ovr.big { width: 54px; height: 54px; font-size: 30px; }
+  .meter { margin-top: 14px; display: grid; gap: 6px; }
+  .meter .bar { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+  .meter .bar i { display: block; height: 100%; background: var(--led); border-radius: 99px; transition: width .4s ease; }
+  .meter .lab { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+  .meter .lab b { color: var(--chalk); font-family: var(--mono); }
+  .notes { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+  .notes li { padding-left: 14px; position: relative; color: var(--muted); }
+  .notes li::before { content: ""; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; border-radius: 50%; background: var(--win); }
+  .notes li.bad::before { background: var(--loss); }
+
+  .rollbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  .rollbar .hint { color: #A47A1D; font-family: var(--mono); font-size: 12px; }
+
+  /* player cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 10px; }
+  .pcard {
+    text-align: left; display: grid; gap: 10px;
+    background: var(--panel-2); border: 1.5px solid transparent; border-radius: 10px; padding: 12px;
+    transition: border-color .12s ease, transform .12s ease;
+  }
+  button.pcard:hover:not(:disabled) { border-color: var(--led); transform: translateY(-2px); }
+  .pcard:disabled { opacity: .38; }
+  .pcard .top { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; }
+  .pcard .nm { font-weight: 700; font-size: 15px; line-height: 1.2; }
+  .pcard .meta { font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; margin-top: 3px; align-items: center; }
+  .statrow { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; text-align: center; background: var(--panel); border-radius: 6px; padding: 6px 2px; }
+  .statrow div { min-width: 0; }
+  .statrow b { display: block; font-family: var(--mono); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .statrow span { display: block; font-size: 10px; letter-spacing: .1em; color: var(--faint); font-weight: 700; }
+  .pcard .why { font-size: 12px; color: var(--loss); font-weight: 600; }
+
+  /* tables */
+  .tbl-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 8px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  th { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  td { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; font-family: var(--body); }
+  td:first-child b { font-weight: 700; }
+  td:first-child small { color: var(--muted); margin-left: 6px; }
+
+  /* season */
+  .scoreboard {
+    background: #090B0F; border-radius: 12px; padding: 16px 18px; color: var(--led);
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end;
+    box-shadow: inset 0 0 0 1px #2B2410;
+  }
+  .scoreboard .k { font-family: var(--display); font-weight: 700; font-size: 12px; letter-spacing: .2em; color: #A47A1D; }
+  .scoreboard .v { font-family: var(--display); font-weight: 900; font-size: clamp(40px, 8vw, 68px); line-height: .9; text-shadow: 0 0 16px rgba(255,182,39,.45); font-variant-numeric: tabular-nums; }
+  .scoreboard .v.sm { font-size: clamp(20px, 3vw, 26px); line-height: 1.1; }
+  .strip { display: grid; grid-template-columns: repeat(41, minmax(0, 1fr)); gap: 3px; }
+  .strip i { aspect-ratio: 1; border-radius: 2px; background: var(--panel-2); max-width: 100%; }
+  .strip i.w { background: var(--win); }
+  .strip i.l { background: var(--loss); }
+  .lastgame { font-family: var(--mono); font-size: 13px; color: var(--muted); min-height: 1.5em; }
+  .lastgame .W { color: var(--win); font-weight: 600; }
+  .lastgame .L { color: var(--loss); font-weight: 600; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+  .facts { display: grid; gap: 10px; }
+  .fact { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; font-size: 14px; }
+  .fact span { color: var(--faint); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding-top: 2px; }
+  .award { display: inline-block; margin: 0 6px 6px 0; }
+
+  /* playoffs */
+  .bracket-wrap { overflow-x: auto; padding-bottom: 6px; }
+  .bracket { display: grid; grid-template-columns: repeat(4, minmax(170px, 1fr)); gap: 14px; min-width: 740px; }
+  .bcol { display: flex; flex-direction: column; justify-content: space-around; gap: 8px; }
+  .bcol h3 { font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  .match { background: var(--panel-2); border-radius: 6px; overflow: hidden; font-size: 13px; }
+  .match .tm { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 6px; padding: 5px 8px; align-items: center; }
+  .match .tm + .tm { border-top: 1px solid var(--line); }
+  .match .sd { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .match .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .match .w { font-family: var(--mono); color: var(--muted); }
+  .match .tm.win .nm { font-weight: 700; }
+  .match .tm.win .w { color: var(--led); }
+  .match .tm.lose { opacity: .5; }
+  .match .tm.you .nm { color: var(--led); }
+  .match.tbd { opacity: .5; }
+
+  .series-head { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .vs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: center; background: #090B0F; border-radius: 12px; padding: 16px; }
+  .vs .side { min-width: 0; }
+  .vs .side.r { text-align: right; }
+  .vs .tn { font-family: var(--display); font-weight: 800; font-size: clamp(18px, 3vw, 26px); text-transform: uppercase; line-height: 1.05; }
+  .vs .sub { font-size: 12px; color: var(--muted); }
+  .vs .sc { font-family: var(--display); font-weight: 900; font-size: clamp(44px, 8vw, 72px); color: var(--led); line-height: .9; text-shadow: 0 0 16px rgba(255,182,39,.45); font-variant-numeric: tabular-nums; }
+  .games { display: grid; gap: 6px; }
+  .game {
+    display: grid; grid-template-columns: 64px 26px minmax(0, 1fr); gap: 10px; align-items: center;
+    background: var(--panel-2); border-radius: 6px; padding: 8px 10px; font-size: 13px;
+  }
+  .game .g { font-family: var(--display); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .game .res { font-family: var(--display); font-weight: 900; font-size: 18px; }
+  .game .res.W { color: var(--win); }
+  .game .res.L { color: var(--loss); }
+  .game .line { font-family: var(--mono); font-size: 12px; color: var(--muted); min-width: 0; }
+  .game .line b { color: var(--chalk); font-weight: 600; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  details.scout summary { cursor: pointer; font-weight: 700; color: var(--muted); font-size: 14px; }
+  details.scout[open] summary { margin-bottom: 10px; }
+
+  /* end */
+  .banner {
+    border-radius: 12px; padding: 28px 22px; text-align: center; color: var(--floor-ink);
+    background:
+      repeating-linear-gradient(90deg, transparent 0 57px, rgba(70,35,8,.2) 57px 58px),
+      repeating-linear-gradient(90deg, var(--maple) 0 174px, var(--maple-2) 174px 290px, var(--maple-3) 290px 406px, var(--maple) 406px 580px);
+  }
+  .banner .big { font-family: var(--display); font-weight: 900; font-size: clamp(48px, 10vw, 104px); line-height: .85; text-transform: uppercase; }
+  .banner p { font-weight: 600; margin: 10px auto 0; max-width: 52ch; }
+  .banner.out { background: var(--panel-2); color: var(--chalk); }
+  .banner.out .big { color: var(--loss); }
+
+  @media (max-width: 900px) {
+    .floor .wrap { grid-template-columns: minmax(0, 1fr); padding-top: 56px; }
+    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .eras { grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); }
+    .draft-grid, .two { grid-template-columns: minmax(0, 1fr); }
+    .draft-grid > aside { order: 2; }
+  }
+  @media (max-width: 520px) {
+    .steps { grid-template-columns: minmax(0, 1fr); }
+    .reel .v { font-size: 24px; }
+    .strip { grid-template-columns: repeat(21, minmax(0, 1fr)); }
+    .scoreboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .scoreboard > div:last-child { grid-column: 1 / -1; }
+    .game { grid-template-columns: 50px 22px minmax(0, 1fr); }
+    .fact { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ======================= DATA ======================= */
+/* Approximate regular-season averages. Row: [name, pos, PTS, REB, AST, STL, BLK, FG%, OVR] */
+const ERA_INFO = {
+  '1980s': { pace: 110, color: 'var(--e80)' },
+  '1990s': { pace: 101, color: 'var(--e90)' },
+  '2000s': { pace: 97,  color: 'var(--e00)' },
+  '2010s': { pace: 104, color: 'var(--e10)' },
+  '2020s': { pace: 114, color: 'var(--e20)' },
+};
+const ERAS = Object.keys(ERA_INFO);
+
+const RAW = [
+  ['1980s', '1985-86', 'Boston Celtics', [
+    ['Larry Bird','SF',25.8,9.8,6.8,2.0,0.6,49.6,97],
+    ['Kevin McHale','PF',21.3,8.1,2.7,0.4,2.0,57.4,90],
+    ['Robert Parish','C',16.1,9.5,1.8,0.9,1.4,54.9,86],
+    ['Dennis Johnson','PG',15.6,3.4,5.8,1.4,0.4,45.5,84],
+    ['Danny Ainge','SG',10.7,2.9,5.1,1.2,0.1,50.4,80],
+    ['Bill Walton','C',7.6,6.8,2.1,0.5,1.3,56.2,79],
+    ['Scott Wedman','SF',8.0,2.4,1.1,0.6,0.1,47.3,74],
+    ['Jerry Sichting','PG',6.5,1.3,2.3,0.6,0.0,57.0,72]]],
+  ['1980s', '1986-87', 'Los Angeles Lakers', [
+    ['Magic Johnson','PG',23.9,6.3,12.2,1.7,0.5,52.2,97],
+    ['James Worthy','SF',19.4,5.7,2.8,1.3,0.8,53.9,88],
+    ['Kareem Abdul-Jabbar','C',17.5,6.7,2.6,0.6,1.2,56.4,87],
+    ['Byron Scott','SG',17.0,3.5,3.4,1.6,0.2,48.9,83],
+    ['A.C. Green','PF',10.8,7.8,1.1,0.9,0.5,53.8,79],
+    ['Michael Cooper','SG',10.5,3.1,4.5,1.0,0.6,43.8,80],
+    ['Mychal Thompson','C',10.1,5.6,0.8,0.5,0.7,48.0,76],
+    ['Kurt Rambis','PF',5.7,5.8,1.0,0.6,0.4,51.9,71]]],
+  ['1980s', '1982-83', 'Philadelphia 76ers', [
+    ['Moses Malone','C',24.5,15.3,1.3,1.1,2.0,50.1,95],
+    ['Julius Erving','SF',21.4,6.8,3.7,1.6,1.8,51.7,92],
+    ['Andrew Toney','SG',19.7,2.5,4.5,1.0,0.2,50.1,84],
+    ['Maurice Cheeks','PG',12.5,2.8,6.9,2.3,0.4,54.2,84],
+    ['Bobby Jones','PF',9.0,4.6,2.4,1.4,1.1,54.3,80],
+    ['Clint Richardson','SG',6.7,2.2,1.6,0.5,0.2,48.9,70],
+    ['Marc Iavaroni','PF',5.1,4.0,1.1,0.4,0.3,49.1,70]]],
+  ['1980s', '1988-89', 'Detroit Pistons', [
+    ['Isiah Thomas','PG',18.2,3.4,8.3,1.7,0.2,46.4,91],
+    ['Joe Dumars','SG',17.2,2.5,5.7,0.9,0.1,50.5,86],
+    ['Bill Laimbeer','C',13.7,9.6,2.2,0.6,1.0,49.9,83],
+    ['Dennis Rodman','PF',9.0,9.4,1.2,0.7,0.9,59.5,84],
+    ['Mark Aguirre','SF',15.5,4.6,2.9,0.7,0.1,48.3,82],
+    ['Vinnie Johnson','SG',13.8,3.0,3.1,0.9,0.2,46.4,80],
+    ['John Salley','PF',7.0,4.4,1.0,0.6,1.0,49.8,74],
+    ['James Edwards','C',7.3,2.8,1.0,0.1,0.2,50.0,72]]],
+  ['1980s', '1987-88', 'Chicago Bulls', [
+    ['Michael Jordan','SG',35.0,5.5,5.9,3.2,1.6,53.5,98],
+    ['Charles Oakley','PF',12.4,13.0,3.0,0.9,0.3,48.3,80],
+    ['Dave Corzine','C',10.1,6.0,1.9,0.5,1.1,49.2,74],
+    ['Scottie Pippen','SF',7.9,3.8,2.1,1.2,0.7,46.3,75],
+    ['Horace Grant','PF',7.7,5.5,1.1,0.7,0.8,50.1,74],
+    ['John Paxson','PG',7.9,1.4,3.7,0.6,0.1,49.3,73],
+    ['Sam Vincent','PG',8.4,2.5,5.6,0.8,0.1,43.3,72]]],
+  ['1980s', '1985-86', 'Houston Rockets', [
+    ['Hakeem Olajuwon','C',23.5,11.5,2.0,2.0,3.4,52.6,93],
+    ['Ralph Sampson','PF',18.9,11.1,3.6,0.9,1.6,48.8,87],
+    ['John Lucas','PG',15.5,2.6,8.8,1.0,0.0,47.0,82],
+    ['Lewis Lloyd','SG',16.9,3.5,4.6,1.3,0.3,52.6,80],
+    ['Rodney McCray','SF',12.9,7.0,4.6,0.9,0.7,50.2,80],
+    ['Robert Reid','SG',12.7,3.8,5.1,1.3,0.4,44.2,78],
+    ['Allen Leavell','PG',5.8,1.4,3.2,0.9,0.1,43.3,70]]],
+  ['1980s', '1986-87', 'Atlanta Hawks', [
+    ['Dominique Wilkins','SF',29.0,6.3,3.3,1.5,0.6,46.3,92],
+    ['Doc Rivers','PG',12.8,3.8,10.0,2.1,0.4,45.1,82],
+    ['Kevin Willis','PF',16.1,10.5,0.8,0.8,0.8,53.6,80],
+    ['Randy Wittman','SG',12.7,2.0,2.7,0.5,0.2,50.3,76],
+    ['Tree Rollins','C',6.7,6.6,0.6,0.5,2.9,51.1,76],
+    ['Spud Webb','PG',6.8,1.9,4.3,1.0,0.1,43.8,72],
+    ['Cliff Levingston','PF',6.5,5.6,0.6,0.6,0.6,53.1,71]]],
+
+  ['1990s', '1995-96', 'Chicago Bulls', [
+    ['Michael Jordan','SG',30.4,6.6,4.3,2.2,0.5,49.5,99],
+    ['Scottie Pippen','SF',19.4,6.4,5.9,1.7,0.7,46.3,93],
+    ['Dennis Rodman','PF',5.5,14.9,2.5,0.6,0.4,48.0,85],
+    ['Toni Kukoc','SF',13.1,4.0,3.5,0.9,0.3,49.0,82],
+    ['Ron Harper','PG',7.4,2.7,2.6,1.3,0.4,46.7,77],
+    ['Luc Longley','C',9.1,5.1,1.9,0.4,1.1,48.2,75],
+    ['Steve Kerr','PG',8.4,1.3,2.3,0.8,0.0,50.6,76],
+    ['Bill Wennington','C',5.3,2.5,0.4,0.1,0.2,49.3,70]]],
+  ['1990s', '1996-97', 'Utah Jazz', [
+    ['Karl Malone','PF',27.4,9.9,4.5,1.4,0.6,55.0,95],
+    ['John Stockton','PG',14.4,2.8,10.5,2.0,0.2,54.8,91],
+    ['Jeff Hornacek','SG',14.5,4.1,4.4,1.4,0.3,48.2,83],
+    ['Bryon Russell','SF',10.8,4.0,1.6,1.3,0.4,44.6,77],
+    ['Greg Ostertag','C',7.3,7.3,0.5,0.3,2.0,54.1,74],
+    ['Antoine Carr','PF',7.4,2.6,1.0,0.3,0.7,50.1,72],
+    ['Howard Eisley','PG',4.4,1.7,3.1,0.5,0.1,44.6,70]]],
+  ['1990s', '1993-94', 'Houston Rockets', [
+    ['Hakeem Olajuwon','C',27.3,11.9,3.6,1.6,3.7,52.8,97],
+    ['Otis Thorpe','PF',14.0,10.6,2.3,0.6,0.3,56.1,81],
+    ['Vernon Maxwell','SG',13.6,3.0,5.1,1.5,0.3,38.9,78],
+    ['Kenny Smith','PG',11.6,2.0,4.3,0.8,0.1,48.0,78],
+    ['Robert Horry','PF',9.9,5.4,2.9,1.6,1.0,45.9,79],
+    ['Mario Elie','SF',9.3,2.6,2.5,0.7,0.1,44.6,75],
+    ['Sam Cassell','PG',6.7,2.1,2.9,0.8,0.1,41.8,74]]],
+  ['1990s', '1992-93', 'Phoenix Suns', [
+    ['Charles Barkley','PF',25.6,12.2,5.1,1.6,1.0,52.0,96],
+    ['Kevin Johnson','PG',16.1,3.4,7.8,1.5,0.2,49.9,87],
+    ['Dan Majerle','SF',16.9,4.7,3.8,1.7,0.4,46.4,84],
+    ['Richard Dumas','SF',15.8,4.6,1.5,1.5,0.4,52.4,78],
+    ['Tom Chambers','PF',12.2,4.7,1.1,0.7,0.3,44.7,77],
+    ['Danny Ainge','SG',11.8,2.7,3.3,0.9,0.1,46.0,76],
+    ['Cedric Ceballos','SF',12.8,5.5,0.8,0.5,0.3,57.6,76],
+    ['Mark West','C',6.2,6.2,0.7,0.3,1.8,61.4,73]]],
+  ['1990s', '1994-95', 'Orlando Magic', [
+    ["Shaquille O'Neal",'C',29.3,11.4,2.7,0.9,2.4,58.3,95],
+    ['Penny Hardaway','PG',20.9,4.4,7.2,1.7,0.4,51.2,91],
+    ['Horace Grant','PF',12.8,9.7,2.3,1.0,1.2,56.7,82],
+    ['Nick Anderson','SG',15.8,4.8,3.6,1.7,0.3,47.6,81],
+    ['Dennis Scott','SF',12.9,2.4,1.5,0.8,0.2,43.9,77],
+    ['Brian Shaw','PG',6.4,3.4,5.2,0.9,0.3,37.7,72],
+    ['Anthony Bowie','SG',4.4,1.4,1.7,0.4,0.1,42.5,69]]],
+  ['1990s', '1995-96', 'Seattle SuperSonics', [
+    ['Gary Payton','PG',19.3,4.2,7.5,2.9,0.2,48.4,92],
+    ['Shawn Kemp','PF',19.6,11.4,2.2,1.2,1.6,56.1,90],
+    ['Detlef Schrempf','SF',17.1,5.2,4.4,0.9,0.2,48.6,84],
+    ['Hersey Hawkins','SG',15.6,3.6,2.9,1.8,0.2,47.4,81],
+    ['Sam Perkins','PF',11.8,4.5,1.4,0.8,0.6,40.8,78],
+    ['Nate McMillan','PG',5.8,3.9,5.1,1.7,0.2,41.9,77],
+    ['Ervin Johnson','C',3.5,3.4,0.3,0.2,1.1,51.2,69]]],
+  ['1990s', '1993-94', 'New York Knicks', [
+    ['Patrick Ewing','C',24.5,11.2,2.3,1.1,2.7,49.6,93],
+    ['John Starks','SG',19.0,3.1,5.9,1.6,0.1,42.0,82],
+    ['Charles Oakley','PF',11.8,11.8,2.7,1.4,0.2,47.8,82],
+    ['Derek Harper','PG',10.4,2.2,4.6,1.3,0.1,40.7,78],
+    ['Anthony Mason','PF',7.2,5.8,2.1,0.5,0.2,47.6,77],
+    ['Charles Smith','PF',10.4,4.1,1.4,0.6,1.1,44.6,75],
+    ['Hubert Davis','SG',11.0,1.4,2.4,0.6,0.1,47.1,75]]],
+
+  ['2000s', '2000-01', 'Los Angeles Lakers', [
+    ["Shaquille O'Neal",'C',28.7,12.7,3.7,0.6,2.8,57.2,98],
+    ['Kobe Bryant','SG',28.5,5.9,5.0,1.7,0.6,46.4,94],
+    ['Derek Fisher','PG',11.5,3.0,3.6,2.0,0.1,41.2,77],
+    ['Rick Fox','SF',9.6,4.0,3.2,0.9,0.4,44.4,77],
+    ['Horace Grant','PF',8.5,7.1,1.6,0.7,0.8,46.2,76],
+    ['Robert Horry','PF',5.2,3.7,1.6,0.8,0.7,38.7,74],
+    ['Ron Harper','PG',6.5,3.6,2.6,0.9,0.4,43.8,72]]],
+  ['2000s', '2007-08', 'Boston Celtics', [
+    ['Kevin Garnett','PF',18.8,9.2,3.4,1.4,1.3,53.9,95],
+    ['Paul Pierce','SF',19.6,5.1,4.5,1.3,0.5,46.4,91],
+    ['Ray Allen','SG',17.4,3.7,3.1,0.9,0.2,44.5,87],
+    ['Rajon Rondo','PG',10.6,4.2,5.1,1.7,0.2,49.2,81],
+    ['Kendrick Perkins','C',6.9,6.1,1.2,0.4,1.5,61.5,76],
+    ['James Posey','SF',7.4,4.1,1.1,0.8,0.2,43.5,75],
+    ['Leon Powe','PF',7.9,4.4,0.4,0.3,0.2,53.9,72],
+    ['Eddie House','PG',7.5,1.8,1.6,0.6,0.0,44.4,72]]],
+  ['2000s', '2002-03', 'San Antonio Spurs', [
+    ['Tim Duncan','PF',23.3,12.9,3.9,0.7,2.9,51.3,97],
+    ['Tony Parker','PG',15.5,2.6,5.3,0.9,0.1,46.4,84],
+    ['David Robinson','C',8.5,7.9,1.0,0.8,1.7,46.9,80],
+    ['Stephen Jackson','SF',11.8,3.6,2.3,1.6,0.3,43.4,78],
+    ['Manu Ginobili','SG',7.6,2.3,2.0,1.4,0.2,43.8,78],
+    ['Bruce Bowen','SF',7.1,2.9,1.4,0.9,0.5,46.6,77],
+    ['Malik Rose','PF',10.4,6.4,1.6,0.8,0.4,43.4,76]]],
+  ['2000s', '2005-06', 'Phoenix Suns', [
+    ['Steve Nash','PG',18.8,4.2,10.5,0.8,0.1,51.2,94],
+    ['Shawn Marion','SF',21.8,11.8,1.8,2.0,1.7,52.5,91],
+    ['Boris Diaw','PF',13.3,6.9,6.2,0.7,0.4,52.6,82],
+    ['Raja Bell','SG',14.7,3.2,2.6,0.8,0.2,44.2,80],
+    ['Leandro Barbosa','SG',13.1,2.6,2.8,0.8,0.1,47.9,79],
+    ['Kurt Thomas','C',8.7,8.1,1.4,0.5,0.9,49.0,75],
+    ['James Jones','SF',6.0,2.7,0.8,0.5,0.4,40.0,70]]],
+  ['2000s', '2008-09', 'Cleveland Cavaliers', [
+    ['LeBron James','SF',28.4,7.6,7.2,1.7,1.1,48.9,98],
+    ['Mo Williams','PG',17.8,3.4,4.1,0.9,0.1,46.7,82],
+    ['Zydrunas Ilgauskas','C',12.9,7.5,1.0,0.4,1.3,49.8,79],
+    ['Delonte West','SG',11.7,3.1,3.4,1.4,0.4,45.4,77],
+    ['Anderson Varejao','PF',8.6,7.2,1.0,0.9,0.9,53.6,77],
+    ['Wally Szczerbiak','SF',6.8,2.3,0.9,0.3,0.1,41.0,70],
+    ['Daniel Gibson','SG',5.0,1.8,1.2,0.4,0.1,38.0,70]]],
+  ['2000s', '2003-04', 'Detroit Pistons', [
+    ['Ben Wallace','C',9.5,12.4,1.7,1.8,3.0,42.1,87],
+    ['Chauncey Billups','PG',16.9,3.5,5.7,1.1,0.1,39.4,86],
+    ['Richard Hamilton','SG',17.6,4.0,4.0,1.3,0.2,45.5,85],
+    ['Rasheed Wallace','PF',13.7,7.0,1.8,0.8,2.0,43.1,84],
+    ['Tayshaun Prince','SF',10.3,4.8,2.3,0.8,0.8,46.7,79],
+    ['Mehmet Okur','C',9.6,5.9,1.1,0.4,0.6,46.3,75],
+    ['Corliss Williamson','PF',7.1,3.3,0.8,0.4,0.1,47.4,71]]],
+  ['2000s', '2005-06', 'Miami Heat', [
+    ['Dwyane Wade','SG',27.2,5.7,6.7,1.9,0.8,49.5,94],
+    ["Shaquille O'Neal",'C',20.0,9.2,1.9,0.4,1.8,60.0,88],
+    ['Alonzo Mourning','C',7.8,5.5,0.4,0.4,2.7,59.7,78],
+    ['Antoine Walker','PF',12.2,5.1,2.0,0.8,0.3,43.5,77],
+    ['Jason Williams','PG',12.3,2.2,4.9,0.8,0.1,44.2,77],
+    ['Udonis Haslem','PF',9.3,7.8,1.0,0.6,0.2,51.2,76],
+    ['Gary Payton','PG',7.7,2.0,3.2,0.9,0.1,42.2,74]]],
+
+  ['2010s', '2016-17', 'Golden State Warriors', [
+    ['Stephen Curry','PG',25.3,4.5,6.6,1.8,0.2,46.8,97],
+    ['Kevin Durant','SF',25.1,8.3,4.8,1.1,1.6,53.7,97],
+    ['Klay Thompson','SG',22.3,3.7,2.1,0.8,0.5,46.8,89],
+    ['Draymond Green','PF',10.2,7.9,7.0,2.0,1.4,41.8,88],
+    ['Andre Iguodala','SF',7.6,4.0,3.4,1.0,0.5,52.8,80],
+    ['JaVale McGee','C',6.1,3.2,0.2,0.4,0.9,65.2,75],
+    ['Zaza Pachulia','C',6.1,5.9,1.9,0.8,0.5,53.4,74],
+    ['Shaun Livingston','PG',5.1,2.0,1.8,0.5,0.3,54.7,74]]],
+  ['2010s', '2012-13', 'Miami Heat', [
+    ['LeBron James','SF',26.8,8.0,7.3,1.7,0.9,56.5,99],
+    ['Dwyane Wade','SG',21.2,5.0,5.1,1.9,0.8,52.1,91],
+    ['Chris Bosh','PF',16.6,6.8,1.7,0.9,1.4,53.5,87],
+    ['Ray Allen','SG',10.9,2.7,1.7,0.8,0.2,44.9,79],
+    ['Mario Chalmers','PG',8.6,2.2,3.5,1.5,0.2,42.9,77],
+    ['Shane Battier','SF',6.6,2.3,1.0,0.6,0.4,42.7,75],
+    ['Chris Andersen','C',4.9,4.1,0.4,0.4,1.0,57.7,74],
+    ['Udonis Haslem','PF',3.9,5.4,0.5,0.3,0.3,51.4,71]]],
+  ['2010s', '2013-14', 'San Antonio Spurs', [
+    ['Tim Duncan','PF',15.1,9.7,3.0,0.6,1.9,49.0,88],
+    ['Tony Parker','PG',16.7,2.3,5.7,0.5,0.1,49.9,87],
+    ['Kawhi Leonard','SF',12.8,6.2,2.0,1.7,0.7,52.2,86],
+    ['Manu Ginobili','SG',12.3,3.0,4.3,1.0,0.3,46.9,84],
+    ['Danny Green','SG',9.1,3.4,1.5,1.0,0.9,43.2,78],
+    ['Boris Diaw','PF',9.1,4.1,2.8,0.5,0.4,52.1,78],
+    ['Tiago Splitter','C',8.2,6.2,1.6,0.6,0.5,52.3,77],
+    ['Patty Mills','PG',10.2,2.6,1.8,0.8,0.1,46.4,76]]],
+  ['2010s', '2015-16', 'Cleveland Cavaliers', [
+    ['LeBron James','SF',25.3,7.4,6.8,1.4,0.6,52.0,97],
+    ['Kyrie Irving','PG',19.6,3.0,4.7,1.1,0.3,44.8,89],
+    ['Kevin Love','PF',16.0,9.9,2.4,0.8,0.5,41.9,85],
+    ['J.R. Smith','SG',12.4,2.8,1.7,1.1,0.3,41.5,78],
+    ['Tristan Thompson','C',7.8,9.0,0.8,0.5,0.6,58.8,78],
+    ['Iman Shumpert','SG',5.8,3.8,1.7,1.2,0.3,37.5,74],
+    ['Matthew Dellavedova','PG',7.5,2.0,4.4,0.4,0.0,40.5,73],
+    ['Richard Jefferson','SF',5.5,1.7,0.8,0.5,0.1,44.6,71]]],
+  ['2010s', '2018-19', 'Toronto Raptors', [
+    ['Kawhi Leonard','SF',26.6,7.3,3.3,1.8,0.4,49.6,96],
+    ['Kyle Lowry','PG',14.2,4.8,8.7,1.4,0.5,41.1,87],
+    ['Pascal Siakam','PF',16.9,6.9,3.1,0.9,0.7,54.9,86],
+    ['Serge Ibaka','C',15.0,8.1,1.3,0.4,1.4,52.9,81],
+    ['Marc Gasol','C',9.1,6.6,3.9,0.9,0.9,46.5,81],
+    ['Danny Green','SG',10.3,4.0,1.6,0.9,0.7,46.5,79],
+    ['Fred VanVleet','PG',11.0,2.6,4.8,0.9,0.3,41.0,79],
+    ['Norman Powell','SG',8.6,2.3,1.5,0.7,0.2,48.3,74]]],
+  ['2010s', '2017-18', 'Houston Rockets', [
+    ['James Harden','SG',30.4,5.4,8.8,1.8,0.7,44.9,98],
+    ['Chris Paul','PG',18.6,5.4,7.9,1.7,0.2,46.0,92],
+    ['Clint Capela','C',13.9,10.8,0.9,0.8,1.9,65.2,84],
+    ['Eric Gordon','SG',18.0,2.5,2.2,0.6,0.4,42.8,81],
+    ['Trevor Ariza','SF',11.7,4.4,1.6,1.5,0.2,41.2,79],
+    ['P.J. Tucker','PF',6.1,5.6,0.9,1.0,0.3,39.6,76],
+    ['Gerald Green','SG',12.1,3.2,0.6,0.5,0.4,40.5,74],
+    ['Luc Mbah a Moute','SF',7.5,3.0,0.9,1.2,0.3,48.1,73]]],
+  ['2010s', '2015-16', 'Oklahoma City Thunder', [
+    ['Kevin Durant','SF',28.2,8.2,5.0,1.0,1.2,50.5,97],
+    ['Russell Westbrook','PG',23.5,7.8,10.4,2.0,0.3,45.4,95],
+    ['Serge Ibaka','PF',12.6,6.8,0.8,0.5,1.9,47.9,81],
+    ['Steven Adams','C',8.0,6.7,0.8,0.5,1.1,61.3,79],
+    ['Enes Kanter','C',12.7,8.1,0.4,0.3,0.4,57.6,79],
+    ['Dion Waiters','SG',9.8,2.6,2.0,1.0,0.2,39.9,75],
+    ['Andre Roberson','SG',4.8,3.6,1.0,0.8,0.6,48.7,74]]],
+
+  ['2020s', '2023-24', 'Boston Celtics', [
+    ['Jayson Tatum','SF',26.9,8.1,4.9,1.0,0.6,47.1,95],
+    ['Jaylen Brown','SG',23.0,5.5,3.6,1.2,0.5,49.9,90],
+    ['Kristaps Porzingis','C',20.1,7.2,2.0,0.7,1.9,51.6,88],
+    ['Derrick White','PG',15.2,4.2,5.2,1.0,1.2,46.1,85],
+    ['Jrue Holiday','PG',12.5,5.4,4.8,0.9,0.8,48.0,85],
+    ['Al Horford','C',8.6,6.4,2.6,0.6,1.0,51.1,79],
+    ['Payton Pritchard','PG',9.6,3.2,3.4,0.5,0.1,46.8,75],
+    ['Sam Hauser','SF',9.0,3.5,1.0,0.5,0.3,44.5,75]]],
+  ['2020s', '2022-23', 'Denver Nuggets', [
+    ['Nikola Jokic','C',24.5,11.8,9.8,1.3,0.7,63.2,98],
+    ['Jamal Murray','PG',20.0,3.9,6.2,1.0,0.2,45.4,88],
+    ['Michael Porter Jr.','SF',17.4,5.5,1.0,0.6,0.5,48.7,83],
+    ['Aaron Gordon','PF',16.3,6.6,3.0,0.8,0.8,56.4,83],
+    ['Kentavious Caldwell-Pope','SG',10.8,2.7,2.4,1.5,0.5,46.2,80],
+    ['Bruce Brown','SG',11.5,4.1,3.4,1.1,0.6,48.3,78],
+    ['Jeff Green','PF',7.8,2.6,1.2,0.4,0.2,48.8,72],
+    ['Christian Braun','SG',4.7,2.4,0.8,0.5,0.2,49.7,70]]],
+  ['2020s', '2020-21', 'Milwaukee Bucks', [
+    ['Giannis Antetokounmpo','PF',28.1,11.0,5.9,1.2,1.2,56.9,97],
+    ['Khris Middleton','SF',20.4,6.0,5.4,1.1,0.1,47.6,87],
+    ['Jrue Holiday','PG',17.7,4.5,6.1,1.6,0.6,50.3,86],
+    ['Brook Lopez','C',12.3,5.0,0.7,0.6,1.5,50.0,80],
+    ['Bobby Portis','PF',11.4,7.1,1.1,0.8,0.3,52.3,78],
+    ['Donte DiVincenzo','SG',10.4,5.8,3.1,1.1,0.2,42.0,77],
+    ['Bryn Forbes','SG',10.1,1.9,1.0,0.4,0.0,45.2,73],
+    ['Pat Connaughton','SG',6.3,3.9,1.0,0.5,0.2,42.5,72]]],
+  ['2020s', '2023-24', 'Dallas Mavericks', [
+    ['Luka Doncic','PG',33.9,9.2,9.8,1.4,0.5,48.7,97],
+    ['Kyrie Irving','SG',25.6,5.0,5.2,1.3,0.5,49.7,89],
+    ['Daniel Gafford','C',11.0,7.6,1.2,0.7,2.0,72.5,79],
+    ['Dereck Lively II','C',8.8,6.9,1.1,0.7,1.4,74.7,77],
+    ['P.J. Washington','PF',10.2,5.6,1.3,0.8,0.9,45.6,77],
+    ['Tim Hardaway Jr.','SG',14.4,3.2,1.8,0.6,0.1,40.2,76],
+    ['Derrick Jones Jr.','SF',8.6,3.3,1.0,0.7,0.6,48.9,75],
+    ['Josh Green','SG',8.2,3.1,1.9,0.6,0.3,49.4,72]]],
+  ['2020s', '2024-25', 'Oklahoma City Thunder', [
+    ['Shai Gilgeous-Alexander','PG',32.7,5.0,6.4,1.7,1.0,51.9,98],
+    ['Jalen Williams','SF',21.6,5.3,5.1,1.6,0.7,48.4,88],
+    ['Chet Holmgren','C',15.0,8.0,2.0,0.6,2.2,49.5,84],
+    ['Isaiah Hartenstein','C',11.2,10.7,3.8,0.8,1.1,56.4,81],
+    ['Luguentz Dort','SG',10.1,4.1,1.6,1.1,0.4,41.3,79],
+    ['Alex Caruso','SG',7.1,2.9,2.5,1.6,0.4,42.7,79],
+    ['Aaron Wiggins','SG',12.0,4.6,1.7,0.8,0.3,47.3,76],
+    ['Cason Wallace','SG',8.4,3.4,2.6,1.6,0.5,46.9,76]]],
+  ['2020s', '2021-22', 'Golden State Warriors', [
+    ['Stephen Curry','PG',25.5,5.2,6.3,1.3,0.4,43.7,94],
+    ['Draymond Green','PF',7.5,7.3,7.0,1.3,1.1,52.5,85],
+    ['Andrew Wiggins','SF',17.2,4.5,2.2,1.0,0.7,46.6,83],
+    ['Klay Thompson','SG',20.4,3.9,2.8,0.5,0.5,42.9,82],
+    ['Jordan Poole','SG',18.5,3.4,4.0,0.8,0.3,44.8,82],
+    ['Kevon Looney','C',6.0,7.3,2.0,0.6,0.6,57.1,76],
+    ['Otto Porter Jr.','SF',8.2,5.7,1.5,1.1,0.5,46.4,76],
+    ['Gary Payton II','SG',7.1,3.5,0.9,1.4,0.3,61.6,76]]],
+  ['2020s', '2022-23', 'Philadelphia 76ers', [
+    ['Joel Embiid','C',33.1,10.2,4.2,1.0,1.7,54.8,97],
+    ['James Harden','PG',21.0,6.1,10.7,1.2,0.5,44.1,90],
+    ['Tyrese Maxey','SG',20.3,2.9,3.5,0.8,0.1,48.1,84],
+    ['Tobias Harris','PF',14.7,5.7,2.5,0.9,0.5,50.1,80],
+    ["De'Anthony Melton",'SG',10.1,3.9,2.6,1.6,0.5,42.5,77],
+    ['Georges Niang','PF',8.2,2.4,1.0,0.4,0.1,43.3,72]]],
+];
+
+const TEAMS = RAW.map(([era, season, name, rows], id) => ({
+  id, era, season, name,
+  nick: name.split(' ').pop(),
+  players: rows.map(([n, pos, pts, reb, ast, stl, blk, fg, ovr], i) => ({
+    name: n, pos, pts, reb, ast, stl, blk, fg, ovr, team: id, idx: i, era,
+  })),
+}));
+
+/* ======================= ENGINE ======================= */
+const BENCH_OVR_USER = 74;
+const FILL_OVR = 72;
+const HOME_EDGE = 1.5;
+const MARGIN_SD = 12;
+const MARGIN_K = 1.1;
+
+const rand = () => Math.random();
+const pick = arr => arr[Math.floor(rand() * arr.length)];
+function normal() {
+  let u = 0, v = 0;
+  while (u === 0) u = rand();
+  while (v === 0) v = rand();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function Phi(x) { // standard normal CDF
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989423 * Math.exp(-x * x / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return x > 0 ? 1 - p : p;
+}
+const avg = arr => arr.reduce((s, x) => s + x, 0) / (arr.length || 1);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+function teamLabel(t) { return `${t.season} ${t.name}`; }
+function teamShort(t) { return `’${t.season.slice(-2)} ${t.nick}`; }
+
+function filler(n) {
+  return { name: 'Reserve', pos: 'SF', pts: 4, reb: 2.5, ast: 1, stl: 0.4, blk: 0.2, fg: 44, ovr: FILL_OVR, generic: true, n };
+}
+
+function chemistry(starters) {
+  const guards = starters.filter(p => p.pos === 'PG' || p.pos === 'SG').length;
+  const bigs = starters.filter(p => p.pos === 'PF' || p.pos === 'C').length;
+  const pg = starters.some(p => p.pos === 'PG');
+  const out = { bonus: 0, notes: [] };
+  if (starters.length < 5) return out;
+  if (guards === 0) { out.bonus -= 3; out.notes.push({ bad: true, t: 'No guards: −3.0 for ball handling' }); }
+  else if (!pg) { out.bonus -= 1; out.notes.push({ bad: true, t: 'No point guard: −1.0 for playmaking' }); }
+  if (bigs === 0) { out.bonus -= 3; out.notes.push({ bad: true, t: 'No bigs: −3.0 for rebounding and rim protection' }); }
+  if (guards >= 4) { out.bonus -= 1.5; out.notes.push({ bad: true, t: 'Four or more guards: −1.5 for size' }); }
+  if (bigs >= 4) { out.bonus -= 1.5; out.notes.push({ bad: true, t: 'Four or more bigs: −1.5 for spacing' }); }
+  const eras = new Set(starters.map(p => p.era));
+  if (eras.size === 1) { out.bonus += 1; out.notes.push({ t: 'All five from one era: +1.0 chemistry' }); }
+  if (out.notes.length === 0) out.notes.push({ t: 'Balanced lineup: guards, wings and bigs covered' });
+  return out;
+}
+
+function rateLineup(starters, bench) {
+  const chem = chemistry(starters);
+  const r = 0.8 * avg(starters.map(p => p.ovr)) + 0.2 * avg(bench.map(p => p.ovr)) + chem.bonus;
+  return { rating: r, chem };
+}
+
+function buildRealTeam(t, takenNames) {
+  const pool = t.players.filter(p => !takenNames.has(p.name)).slice().sort((a, b) => b.ovr - a.ovr);
+  const starters = pool.slice(0, 5);
+  const bench = pool.slice(5, 8);
+  let k = 0;
+  while (bench.length < 3) bench.push(filler(k++));
+  const { rating, chem } = rateLineup(starters, bench);
+  return {
+    key: 't' + t.id, src: t, label: teamLabel(t), short: teamShort(t), era: t.era,
+    starters, bench, rating, chem, pace: ERA_INFO[t.era].pace,
+  };
+}
+
+function buildUserTeam(picks) {
+  const starters = picks.map(r => TEAMS[r.t].players[r.i]);
+  const bench = [0, 1, 2].map(i => ({ ...filler(i), ovr: BENCH_OVR_USER, pts: 6, reb: 3, ast: 1.5 }));
+  const { rating, chem } = rateLineup(starters, bench);
+  return {
+    key: 'you', user: true, label: 'Your Five', short: 'Your Five', era: 'mixed',
+    starters, bench, rating, chem, pace: avg(starters.map(p => ERA_INFO[p.era].pace)),
+  };
+}
+
+function winProb(a, b, edge) { return Phi(MARGIN_K * (a.rating - b.rating + edge) / MARGIN_SD); }
+
+function expectedWins(team, league) {
+  const others = league.filter(o => o.key !== team.key);
+  return 82 * avg(others.map(o => winProb(team, o, 0)));
+}
+
+function boxScore(team, pts) {
+  const roster = team.starters.concat(team.bench);
+  const w = roster.map(p => Math.max(0.3, Math.pow(p.pts, 1.15) * (1 + 0.24 * normal())));
+  const sw = w.reduce((s, x) => s + x, 0);
+  return roster.map((p, i) => {
+    const pp = Math.max(0, Math.round(pts * w[i] / sw));
+    const fgm = Math.round(pp / 2.35);
+    const pct = clamp((p.fg / 100) * (1 + 0.12 * normal()), 0.2, 0.85);
+    const fga = Math.max(fgm, Math.round(fgm / pct));
+    const cnt = x => Math.max(0, Math.round(x + normal() * Math.sqrt(Math.max(x, 0.2))));
+    return {
+      p, pts: pp, fgm, fga,
+      reb: Math.max(0, Math.round(p.reb * (1 + 0.28 * normal()))),
+      ast: Math.max(0, Math.round(p.ast * (1 + 0.3 * normal()))),
+      stl: cnt(p.stl), blk: cnt(p.blk),
+    };
+  });
+}
+
+function gameScore(l) { return l.pts + 0.4 * l.fgm - 0.7 * l.fga + 0.7 * l.reb + 0.7 * l.ast + l.stl + 0.7 * l.blk; }
+
+function simGame(home, away) {
+  const diff = home.rating - away.rating + HOME_EDGE;
+  let m = Math.round(MARGIN_K * diff + MARGIN_SD * normal());
+  let ot = false;
+  if (m === 0) {
+    ot = true;
+    const extra = 1 + Math.floor(rand() * 6);
+    m = rand() < winProb(home, away, HOME_EDGE) ? extra : -extra;
+  }
+  const total = home.pace + away.pace + 9 * normal() + (ot ? 10 : 0);
+  const hs = Math.round((total + m) / 2);
+  const as = hs - m;
+  return { home, away, hs, as, ot, hb: boxScore(home, hs), ab: boxScore(away, as) };
+}
+
+function newAcc() { return { gp: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, hi: 0, gs: 0 }; }
+function addLine(acc, l) {
+  acc.gp++; acc.pts += l.pts; acc.reb += l.reb; acc.ast += l.ast; acc.stl += l.stl; acc.blk += l.blk;
+  acc.fgm += l.fgm; acc.fga += l.fga; acc.hi = Math.max(acc.hi, l.pts); acc.gs += gameScore(l);
+}
+
+function makeLeague(takenNames) { return TEAMS.map(t => buildRealTeam(t, takenNames)); }
+
+function legendsFrom(league) {
+  const out = [];
+  ERAS.forEach(e => {
+    league.filter(t => t.era === e).sort((a, b) => b.rating - a.rating).slice(0, 3).forEach(t => out.push(t));
+  });
+  return out;
+}
+
+function simSeason(user, league) {
+  let order = [];
+  while (order.length < 82) order = order.concat(league.slice().sort(() => rand() - 0.5));
+  order = order.slice(0, 82);
+  const games = [];
+  const acc = {};
+  user.starters.forEach(p => acc[p.name] = newAcc());
+  let w = 0, l = 0;
+  order.forEach((opp, i) => {
+    const home = i % 2 === 0;
+    const g = home ? simGame(user, opp) : simGame(opp, user);
+    const us = home ? g.hs : g.as, them = home ? g.as : g.hs;
+    const box = home ? g.hb : g.ab;
+    box.slice(0, 5).forEach(line => addLine(acc[line.p.name], line));
+    const won = us > them;
+    won ? w++ : l++;
+    games.push({ opp: opp.key, oppShort: opp.short, oppRating: opp.rating, home, us, them, ot: g.ot, won, w, l });
+  });
+  return { games, acc, w, l };
+}
+
+const BRACKET_ORDER = [1, 16, 8, 9, 5, 12, 4, 13, 3, 14, 6, 11, 7, 10, 2, 15];
+const ROUND_NAMES = ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'];
+
+function seedField(user, wins, legends, league) {
+  const entries = [{ team: user, wins }].concat(legends.map(t => ({ team: t, wins: Math.round(expectedWins(t, league)) })));
+  entries.sort((a, b) => b.wins - a.wins || b.team.rating - a.team.rating);
+  entries.forEach((e, i) => e.seed = i + 1);
+  return entries;
+}
+
+function newSeries(a, b) { return { a, b, games: [], wa: 0, wb: 0, done: false, winner: null }; }
+const HOME_PATTERN = [0, 0, 1, 1, 0, 1, 0]; // 0 = higher seed (a) at home
+
+function playSeriesGame(s) {
+  if (s.done) return null;
+  const n = s.games.length;
+  const aHome = HOME_PATTERN[n] === 0;
+  const g = aHome ? simGame(s.a.team, s.b.team) : simGame(s.b.team, s.a.team);
+  const aPts = aHome ? g.hs : g.as, bPts = aHome ? g.as : g.hs;
+  const aBox = aHome ? g.hb : g.ab, bBox = aHome ? g.ab : g.hb;
+  const rec = { n: n + 1, aHome, aPts, bPts, ot: g.ot, aBox, bBox };
+  s.games.push(rec);
+  aPts > bPts ? s.wa++ : s.wb++;
+  if (s.wa === 4 || s.wb === 4) { s.done = true; s.winner = s.wa === 4 ? s.a : s.b; }
+  return rec;
+}
+function finishSeries(s) { while (!s.done) playSeriesGame(s); }
+
+/* ======================= STATE ======================= */
+let S = { screen: 'home' };
+const reduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const f1 = x => (Math.round(x * 10) / 10).toFixed(1);
+
+function takenNames() { return new Set((S.draft ? S.draft.picks : []).map(r => TEAMS[r.t].players[r.i].name)); }
+
+function loadBest() { try { return JSON.parse(localStorage.getItem('eraroll.best') || 'null'); } catch (e) { return null; } }
+function saveBest(rec) {
+  try {
+    const prev = loadBest();
+    const score = r => r.level * 100 + r.w;
+    if (!prev || score(rec) > score(prev)) localStorage.setItem('eraroll.best', JSON.stringify(rec));
+  } catch (e) { /* storage unavailable */ }
+}
+
+/* ======================= VIEWS ======================= */
+const COURT_SVG = `<svg class="court" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <g fill="none" stroke="var(--court-line)" stroke-width="5">
+    <line x1="820" y1="-10" x2="820" y2="610"/>
+    <circle cx="820" cy="300" r="110"/>
+    <circle cx="820" cy="300" r="40"/>
+    <rect x="1010" y="190" width="200" height="220"/>
+    <path d="M1010 230 A70 70 0 0 0 1010 370"/>
+  </g>
+</svg>`;
+
+function viewHome() {
+  const fullLeague = makeLeague(new Set());
+  const legends = legendsFrom(fullLeague);
+  const best = loadBest();
+  const demo = TEAMS.find(t => t.season === '1995-96' && t.nick === 'Bulls');
+  return `
+  <header class="floor">
+    ${COURT_SVG}
+    <a class="site-link" href="index.html">← Kochitty</a>
+    <div class="wrap">
+      <div>
+        <h1 class="logo"><span>Era</span><span>Roll</span><span class="sub">Basketball</span></h1>
+        <p class="tagline">Roll a random team from a random era. Draft one player off that roster. Do it five times, play 82 games, then survive the greatest teams of every decade.</p>
+        <div class="hero-actions">
+          <button class="btn dark" data-action="start" id="start-btn">Start a draft</button>
+          <span class="hero-meta">${TEAMS.length} team-seasons · ${ERAS.length} eras · 1980s to 2020s</span>
+        </div>
+      </div>
+      <div class="board" aria-label="Example roll">
+        <div class="row">
+          <div class="reel"><div class="k">ERA</div><div class="v">${demo.era}</div></div>
+          <div class="reel"><div class="k">SEASON</div><div class="v">${demo.season}</div></div>
+          <div class="reel wide"><div class="k">TEAM</div><div class="v">${esc(demo.name)}</div></div>
+        </div>
+        <div class="foot"><span>PICK 1 OF 5</span><span>REROLLS 2</span></div>
+      </div>
+    </div>
+  </header>
+  <main class="wrap home-body">
+    <section>
+      <div class="sec-head"><div><div class="eyebrow">How a run works</div><h2>Four stages</h2></div></div>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><h3>Roll</h3><p>The board lands on a random era, then a random team from it. Two rerolls per draft.</p></div>
+        <div class="step"><div class="n">2</div><h3>Draft</h3><p>Pick one player from that roster. Every card shows points, rebounds, assists, steals, blocks and FG%.</p></div>
+        <div class="step"><div class="n">3</div><h3>Season</h3><p>Your five play 82 games against every team-season in the pool. Your record sets your playoff seed.</p></div>
+        <div class="step"><div class="n">4</div><h3>Playoffs</h3><p>A 16-team bracket: you plus the three best teams of each era. Four best-of-seven rounds.</p></div>
+      </div>
+    </section>
+    <section>
+      <div class="sec-head"><div><div class="eyebrow">The playoff field</div><h2>Legends waiting</h2>
+        <p>Top three teams per era by team rating. Any player you draft leaves his old team, so the field shifts with your picks.</p></div></div>
+      <div class="eras">
+        ${ERAS.map(e => `<div class="era-col" style="--era:${ERA_INFO[e].color}"><h3>${e}</h3>
+          ${legends.filter(t => t.era === e).map(t => `<div class="legend"><span class="t">${esc(t.src.name)}</span><span class="s">${t.src.season} · ${esc(t.starters[0].name)}</span><span class="r">Rating ${f1(t.rating)}</span></div>`).join('')}
+        </div>`).join('')}
+      </div>
+    </section>
+    ${best ? `<section class="best"><span class="eyebrow">Your best run</span><b>${esc(best.finish)}</b><span class="num">${best.w}–${best.l}</span><span style="color:var(--muted)">${esc(best.five)}</span></section>` : ''}
+    <p class="fine">Player numbers are approximate regular-season averages for the listed season. Ratings and results are a simulation. Fan-made game, not affiliated with any league or team.</p>
+  </main>`;
+}
+
+function topbar(stage) {
+  const stages = ['Draft', 'Season', 'Playoffs'];
+  const idx = stages.indexOf(stage);
+  return `<div class="topbar"><div class="wrap">
+    <button class="mark" data-action="home" title="Back to the home screen">Era Roll</button>
+    <nav class="progress" aria-label="Stage">${stages.map((s, i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}">${s}</span>`).join('')}</nav>
+  </div></div>`;
+}
+
+function statRow(o) {
+  return `<div class="statrow">
+    <div><b>${f1(o.pts)}</b><span>PTS</span></div>
+    <div><b>${f1(o.reb)}</b><span>REB</span></div>
+    <div><b>${f1(o.ast)}</b><span>AST</span></div>
+    <div><b>${f1(o.stl)}</b><span>STL</span></div>
+    <div><b>${f1(o.blk)}</b><span>BLK</span></div>
+    <div><b>${f1(o.fg)}</b><span>FG%</span></div>
+  </div>`;
+}
+
+function playerCard(p, { action, disabled, why, origin } = {}) {
+  const tag = action ? 'button' : 'div';
+  const t = TEAMS[p.team];
+  return `<${tag} class="pcard" ${action ? `data-action="${action}" data-i="${p.idx}" ${disabled ? 'disabled' : ''}` : ''} style="--era:${ERA_INFO[p.era].color}">
+    <div class="top"><div class="ovr">${p.ovr}</div>
+      <div><div class="nm">${esc(p.name)}</div>
+      <div class="meta"><span class="chip">${p.pos}</span>${origin ? `<span class="chip era">${esc(teamShort(t))}</span>` : ''}</div></div>
+    </div>
+    ${statRow(p)}
+    ${why ? `<div class="why">${esc(why)}</div>` : ''}
+  </${tag}>`;
+}
+
+function slotsView(picks) {
+  const players = picks.map(r => TEAMS[r.t].players[r.i]);
+  const rows = [];
+  for (let i = 0; i < 5; i++) {
+    const p = players[i];
+    rows.push(p
+      ? `<div class="slot"><div class="ovr">${p.ovr}</div><div class="who"><b>${esc(p.name)}</b><small>${p.pos} · ${esc(teamShort(TEAMS[p.team]))}</small></div><span class="chip era" style="--era:${ERA_INFO[p.era].color}">${p.era}</span></div>`
+      : `<div class="slot empty"><div></div><div class="who"><small>Pick ${i + 1}</small></div><div></div></div>`);
+  }
+  let meter = '';
+  if (players.length) {
+    const bench = [0, 1, 2].map(() => ({ ovr: BENCH_OVR_USER }));
+    const { rating, chem } = players.length === 5 ? rateLineup(players, bench) : { rating: 0.8 * avg(players.map(p => p.ovr)) + 0.2 * BENCH_OVR_USER, chem: { notes: [] } };
+    const pct = clamp((rating - 70) / 30 * 100, 0, 100);
+    meter = `<div class="meter"><div class="lab"><span>${players.length === 5 ? 'Team rating' : 'Rating so far'}</span><b>${f1(rating)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
+      ${chem.notes.length ? `<ul class="notes">${chem.notes.map(n => `<li class="${n.bad ? 'bad' : ''}">${esc(n.t)}</li>`).join('')}</ul>` : ''}`;
+  }
+  return `<div class="slots">${rows.join('')}</div>${meter}`;
+}
+
+function viewDraft() {
+  const d = S.draft;
+  const n = d.picks.length;
+  const taken = takenNames();
+  const t = d.rolled != null ? TEAMS[d.rolled] : null;
+  const eraTxt = d.spinning ? '····' : t ? t.era : '—';
+  const seasonTxt = d.spinning ? '····' : t ? t.season : '—';
+  const teamTxt = d.spinning ? 'Rolling…' : t ? t.name : 'Press roll';
+  let roster = '';
+  if (t && !d.spinning) {
+    const ps = t.players.slice().sort((a, b) => b.ovr - a.ovr);
+    roster = `<section class="panel"><h2>Pick from the ${esc(teamLabel(t))}</h2>
+      <div class="cards">${ps.map(p => playerCard(p, { action: 'pick', disabled: taken.has(p.name), why: taken.has(p.name) ? 'Already on your team (another season)' : '' })).join('')}</div></section>`;
+  }
+  const canRoll = !d.spinning && t == null;
+  const canReroll = !d.spinning && t != null && d.rerolls > 0;
+  return `${topbar('Draft')}
+  <main class="wrap screen">
+    <div><h1>Pick ${Math.min(n + 1, 5)} of 5</h1><p class="lede">Roll the board, then draft one player from the team it lands on. A balanced five with guards and bigs plays better than five scorers.</p></div>
+    <div class="draft-grid">
+      <aside class="panel"><h2>Your five</h2>${slotsView(d.picks)}</aside>
+      <div style="display:grid;gap:18px;min-width:0">
+        <div class="board">
+          <div class="row">
+            <div class="reel ${d.spinning ? 'spin' : ''}"><div class="k">ERA</div><div class="v" id="reelEra">${eraTxt}</div></div>
+            <div class="reel ${d.spinning ? 'spin' : ''}"><div class="k">SEASON</div><div class="v" id="reelSeason">${seasonTxt}</div></div>
+            <div class="reel wide ${d.spinning ? 'spin' : ''}"><div class="k">TEAM</div><div class="v" id="reelTeam">${esc(teamTxt)}</div></div>
+          </div>
+          <div class="rollbar">
+            <button class="btn" data-action="roll" id="roll-btn" ${canRoll ? '' : 'disabled'}>Roll</button>
+            <button class="btn ghost small" data-action="reroll" id="reroll-btn" ${canReroll ? '' : 'disabled'}>Reroll (${d.rerolls} left)</button>
+            <span class="hint">${t && !d.spinning ? 'Choose a player below' : ''}</span>
+          </div>
+        </div>
+        ${roster}
+      </div>
+    </div>
+  </main>`;
+}
+
+function viewRoster() {
+  const d = S.draft;
+  const user = buildUserTeam(d.picks);
+  const league = makeLeague(takenNames());
+  const proj = Math.round(expectedWins(user, league));
+  return `${topbar('Season')}
+  <main class="wrap screen">
+    <div><h1>Your five is set</h1><p class="lede">Three generic reserves (rated ${BENCH_OVR_USER}) fill your bench. The rating below weights starters 80% and bench 20%, plus lineup adjustments.</p></div>
+    <div class="two">
+      <section class="panel"><h2>Lineup</h2>${slotsView(d.picks)}</section>
+      <section class="panel"><h2>Outlook</h2>
+        <div class="facts">
+          <div class="fact"><span>Rating</span><b class="num">${f1(user.rating)}</b></div>
+          <div class="fact"><span>Projection</span><b class="num">${proj}–${82 - proj}</b></div>
+          <div class="fact"><span>Pace</span><span class="num" style="color:var(--chalk);font-size:14px;letter-spacing:0;text-transform:none;font-weight:400">${Math.round(user.pace)} points a game, the average of your players' eras</span></div>
+        </div>
+        <div class="actions" style="margin-top:18px"><button class="btn" data-action="season" id="season-btn">Play the season</button></div>
+      </section>
+    </div>
+    <section class="panel"><h2>Player cards</h2><div class="cards">${user.starters.map(p => playerCard(p, { origin: true })).join('')}</div></section>
+  </main>`;
+}
+
+function seasonTable(acc, starters) {
+  return `<div class="tbl-wrap"><table>
+    <thead><tr><th>Player</th><th>GP</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>FG%</th><th>High</th></tr></thead>
+    <tbody>${starters.map(p => {
+      const a = acc[p.name]; const g = a.gp || 1;
+      return `<tr><td><b>${esc(p.name)}</b><small>${p.pos}</small></td><td>${a.gp}</td><td>${f1(a.pts / g)}</td><td>${f1(a.reb / g)}</td><td>${f1(a.ast / g)}</td><td>${f1(a.stl / g)}</td><td>${f1(a.blk / g)}</td><td>${a.fga ? f1(100 * a.fgm / a.fga) : '—'}</td><td>${a.hi}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+function viewSeason() {
+  const s = S.season;
+  const shown = s.games.slice(0, s.shown);
+  const last = shown[shown.length - 1];
+  const w = last ? last.w : 0, l = last ? last.l : 0;
+  const cells = s.games.map((g, i) => `<i class="${i < s.shown ? (g.won ? 'w' : 'l') : ''}"></i>`).join('');
+  const done = s.shown >= 82;
+  let summary = '';
+  if (done) {
+    const user = S.user;
+    const wins = s.games.filter(g => g.won);
+    const losses = s.games.filter(g => !g.won);
+    const sig = wins.slice().sort((a, b) => b.oppRating - a.oppRating)[0];
+    const worst = losses.slice().sort((a, b) => a.oppRating - b.oppRating)[0];
+    const mvp = user.starters.slice().sort((a, b) => s.acc[b.name].gs - s.acc[a.name].gs)[0];
+    const ma = s.acc[mvp.name];
+    const award = s.w >= 62 ? 'MVP' : s.w >= 52 ? 'MVP finalist' : 'All-Star';
+    const seedRow = S.field.find(e => e.team.user);
+    summary = `
+    <div class="two">
+      <section class="panel"><h2>Season review</h2>
+        <div class="facts">
+          <div class="fact"><span>Record</span><b class="num">${s.w}–${s.l}</b></div>
+          <div class="fact"><span>Playoff seed</span><b class="num">#${seedRow.seed} of 16</b></div>
+          <div class="fact"><span>${award}</span><span style="color:var(--chalk);font-size:14px;letter-spacing:0;text-transform:none;font-weight:600">${esc(mvp.name)} · ${f1(ma.pts / ma.gp)} pts, ${f1(ma.reb / ma.gp)} reb, ${f1(ma.ast / ma.gp)} ast</span></div>
+          ${sig ? `<div class="fact"><span>Best win</span><span class="num" style="color:var(--chalk);letter-spacing:0;text-transform:none;font-weight:400">${sig.us}–${sig.them} ${sig.home ? 'vs' : 'at'} ${esc(sig.oppShort)}</span></div>` : ''}
+          ${worst ? `<div class="fact"><span>Worst loss</span><span class="num" style="color:var(--chalk);letter-spacing:0;text-transform:none;font-weight:400">${worst.us}–${worst.them} ${worst.home ? 'vs' : 'at'} ${esc(worst.oppShort)}</span></div>` : ''}
+        </div>
+        <div class="actions" style="margin-top:18px"><button class="btn" data-action="playoffs" id="playoffs-btn">Enter the playoffs</button></div>
+      </section>
+      <section class="panel"><h2>Playoff seeding</h2>
+        <div class="tbl-wrap"><table><thead><tr><th>Team</th><th>Seed</th><th>Wins</th><th>Rating</th></tr></thead><tbody>
+        ${S.field.map(e => `<tr><td>${e.team.user ? '<b style="color:var(--led)">Your Five</b>' : esc(e.team.label)}</td><td>${e.seed}</td><td>${e.wins}${e.team.user ? '' : '*'}</td><td>${f1(e.team.rating)}</td></tr>`).join('')}
+        </tbody></table></div>
+        <p class="fine" style="margin:8px 0 0">* Projected wins over 82 games against the same pool.</p>
+      </section>
+    </div>
+    <section class="panel"><h2>Season averages</h2>${seasonTable(s.acc, S.user.starters)}</section>`;
+  }
+  return `${topbar('Season')}
+  <main class="wrap screen">
+    <div><h1>Regular season</h1><p class="lede">82 games against all ${TEAMS.length} team-seasons, home and away.</p></div>
+    <div class="scoreboard" aria-live="polite">
+      <div><div class="k">WINS</div><div class="v" id="sb-w">${w}</div></div>
+      <div><div class="k">LOSSES</div><div class="v" id="sb-l">${l}</div></div>
+      <div><div class="k">GAME</div><div class="v sm" id="sb-g">${s.shown} / 82</div></div>
+    </div>
+    <div class="strip" id="strip">${cells}</div>
+    <div class="lastgame" id="lastgame">${last ? lastLine(last) : ''}</div>
+    ${done ? '' : `<div class="actions"><button class="btn ghost small" data-action="skip" id="skip-btn">Skip to the end</button></div>`}
+    ${summary}
+  </main>`;
+}
+function lastLine(g) {
+  return `Game ${g.w + g.l}: <span class="${g.won ? 'W' : 'L'}">${g.won ? 'W' : 'L'}</span> ${g.us}–${g.them}${g.ot ? ' (OT)' : ''} ${g.home ? 'vs' : 'at'} ${esc(g.oppShort)}`;
+}
+
+function entryName(e) { return e.team.user ? 'Your Five' : e.team.short; }
+
+function bracketView() {
+  const P = S.po;
+  const cols = [];
+  for (let r = 0; r < 4; r++) {
+    const series = P.rounds[r];
+    const expected = 8 >> r;
+    let items = '';
+    for (let i = 0; i < expected; i++) {
+      const s = series && series[i];
+      if (!s) { items += `<div class="match tbd"><div class="tm"><span class="sd"></span><span class="nm">TBD</span><span class="w"></span></div><div class="tm"><span class="sd"></span><span class="nm">TBD</span><span class="w"></span></div></div>`; continue; }
+      const show = s.done || s.a.team.user || s.b.team.user;
+      const row = (e, wins, other) => {
+        const cls = [s.done ? (s.winner === e ? 'win' : 'lose') : '', e.team.user ? 'you' : ''].join(' ');
+        return `<div class="tm ${cls}"><span class="sd">${e.seed}</span><span class="nm">${esc(entryName(e))}</span><span class="w">${show ? wins : ''}</span></div>`;
+      };
+      items += `<div class="match">${row(s.a, s.wa)}${row(s.b, s.wb)}</div>`;
+    }
+    cols.push(`<div class="bcol"><h3>${ROUND_NAMES[r]}</h3>${items}</div>`);
+  }
+  return `<div class="bracket-wrap"><div class="bracket">${cols.join('')}</div></div>`;
+}
+
+function userSeries() {
+  const P = S.po;
+  const rs = P.rounds[P.round];
+  return rs ? rs.find(s => s.a.team.user || s.b.team.user) : null;
+}
+
+function rosterTable(team) {
+  const ps = team.starters.concat(team.bench).filter(p => !p.generic);
+  return `<div class="tbl-wrap"><table><thead><tr><th>Player</th><th>OVR</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>FG%</th></tr></thead><tbody>
+    ${ps.map(p => `<tr><td><b>${esc(p.name)}</b><small>${p.pos}</small></td><td>${p.ovr}</td><td>${f1(p.pts)}</td><td>${f1(p.reb)}</td><td>${f1(p.ast)}</td><td>${f1(p.stl)}</td><td>${f1(p.blk)}</td><td>${f1(p.fg)}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+function viewPlayoffs() {
+  const P = S.po;
+  const s = userSeries();
+  let panel = '';
+  if (s) {
+    const youA = s.a.team.user;
+    const you = youA ? s.a : s.b, opp = youA ? s.b : s.a;
+    const yw = youA ? s.wa : s.wb, ow = youA ? s.wb : s.wa;
+    const games = s.games.map(g => {
+      const yp = youA ? g.aPts : g.bPts, op = youA ? g.bPts : g.aPts;
+      const ybox = (youA ? g.aBox : g.bBox).slice(0, 5);
+      const obox = youA ? g.bBox : g.aBox;
+      const yTop = ybox.slice().sort((a, b) => b.pts - a.pts)[0];
+      const oTop = obox.slice().sort((a, b) => b.pts - a.pts)[0];
+      const youHome = youA ? g.aHome : !g.aHome;
+      return `<div class="game"><span class="g">Game ${g.n}</span><span class="res ${yp > op ? 'W' : 'L'}">${yp > op ? 'W' : 'L'}</span>
+        <span class="line"><b>${yp}–${op}</b>${g.ot ? ' OT' : ''} ${youHome ? 'home' : 'away'} · ${esc(yTop.p.name)} ${yTop.pts} pts, ${yTop.reb} reb, ${yTop.ast} ast · ${esc(oTop.p.name)} ${oTop.pts} pts</span></div>`;
+    }).join('');
+    const next = s.games.length + 1;
+    panel = `<section class="panel" style="display:grid;gap:14px">
+      <div class="series-head"><h2 style="font-family:var(--display);font-weight:800;font-size:22px;text-transform:uppercase;letter-spacing:.04em">${ROUND_NAMES[P.round]}</h2>
+        <span class="chip">${s.done ? 'Series over' : 'Best of seven'}</span></div>
+      <div class="vs">
+        <div class="side"><div class="tn" style="color:var(--led)">Your Five</div><div class="sub">Seed ${you.seed} · rating ${f1(you.team.rating)}</div></div>
+        <div class="sc">${yw}–${ow}</div>
+        <div class="side r"><div class="tn">${esc(opp.team.label)}</div><div class="sub">Seed ${opp.seed} · rating ${f1(opp.team.rating)}</div></div>
+      </div>
+      ${games ? `<div class="games">${games}</div>` : ''}
+      <div class="actions">
+        ${s.done
+          ? `<button class="btn" data-action="advance" id="advance-btn">${s.winner.team.user ? (P.round === 3 ? 'See the result' : 'Next round') : 'See the result'}</button>`
+          : `<button class="btn" data-action="game" id="game-btn">Play game ${next}</button><button class="btn ghost small" data-action="simseries" id="simseries-btn">Sim the rest of the series</button>`}
+      </div>
+      <details class="scout"><summary>Scouting report: ${esc(opp.team.label)}</summary>${rosterTable(opp.team)}</details>
+    </section>`;
+  }
+  return `${topbar('Playoffs')}
+  <main class="wrap screen">
+    <div><h1>The gauntlet</h1><p class="lede">You against the three best teams of every era. Higher seed hosts games 1, 2, 5 and 7.</p></div>
+    ${panel}
+    <section class="panel"><h2>Bracket</h2>${bracketView()}</section>
+  </main>`;
+}
+
+function viewEnd() {
+  const E = S.end;
+  const champ = E.champion;
+  const user = S.user;
+  return `${topbar('Playoffs')}
+  <main class="wrap screen">
+    <div class="banner ${champ ? '' : 'out'}">
+      <div class="big">${champ ? 'Champions' : esc(E.finish)}</div>
+      <p>${champ
+        ? `Your Five beat ${esc(E.beat.join(', '))}. Finals MVP: ${esc(E.fmvp)}.`
+        : `Eliminated by the ${esc(E.by)}, ${E.score}. ${esc(E.champLabel)} won the title.`}</p>
+    </div>
+    <div class="two">
+      <section class="panel"><h2>Run summary</h2>
+        <div class="facts">
+          <div class="fact"><span>Season</span><b class="num">${S.season.w}–${S.season.l}</b></div>
+          <div class="fact"><span>Seed</span><b class="num">#${S.field.find(e => e.team.user).seed}</b></div>
+          <div class="fact"><span>Playoffs</span><b class="num">${E.pw}–${E.pl} in games</b></div>
+          <div class="fact"><span>Finish</span><b>${esc(E.finish)}</b></div>
+        </div>
+        <div class="actions" style="margin-top:18px">
+          <button class="btn" data-action="start" id="again-btn">Draft again</button>
+          <button class="btn ghost small" data-action="home">Home screen</button>
+        </div>
+      </section>
+      <section class="panel"><h2>Your five</h2>${slotsView(S.draft.picks)}</section>
+    </div>
+    <section class="panel"><h2>Playoff averages</h2>${seasonTable(E.acc, user.starters)}</section>
+    <section class="panel"><h2>Regular-season averages</h2>${seasonTable(S.season.acc, user.starters)}</section>
+  </main>`;
+}
+
+function render() {
+  const app = $('#app');
+  const v = { home: viewHome, draft: viewDraft, roster: viewRoster, season: viewSeason, playoffs: viewPlayoffs, end: viewEnd }[S.screen];
+  app.innerHTML = v();
+}
+
+/* ======================= ACTIONS ======================= */
+let timer = null;
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+
+function startDraft() {
+  stopTimer();
+  S = { screen: 'draft', draft: { picks: [], rolled: null, rerolls: 2, usedTeams: [], spinning: false } };
+  render();
+  window.scrollTo(0, 0);
+}
+
+function roll() {
+  const d = S.draft;
+  if (d.spinning) return;
+  const avail = TEAMS.filter(t => !d.usedTeams.includes(t.id));
+  const eras = ERAS.filter(e => avail.some(t => t.era === e));
+  const era = pick(eras);
+  const target = pick(avail.filter(t => t.era === era));
+  d.usedTeams.push(target.id);
+  const finish = () => { d.spinning = false; d.rolled = target.id; stopTimer(); render(); };
+  if (reduced()) { finish(); return; }
+  d.spinning = true; d.rolled = null; render();
+  let step = 0;
+  const STEPS = 22, ERA_LOCK = 12;
+  const tick = () => {
+    step++;
+    const eEl = $('#reelEra'), sEl = $('#reelSeason'), tEl = $('#reelTeam');
+    if (!eEl) return;
+    const lockEra = step >= ERA_LOCK;
+    const shownEra = lockEra ? era : pick(ERAS);
+    const poolT = TEAMS.filter(t => t.era === shownEra);
+    const fake = pick(poolT);
+    eEl.textContent = shownEra;
+    sEl.textContent = fake.season;
+    tEl.textContent = fake.name;
+    if (lockEra) eEl.parentElement.classList.remove('spin');
+    if (step < STEPS) timer = setTimeout(tick, 45 + step * step * 0.9);
+    else finish();
+  };
+  timer = setTimeout(tick, 40);
+}
+
+function draftPick(i) {
+  const d = S.draft;
+  if (d.rolled == null) return;
+  const p = TEAMS[d.rolled].players[i];
+  if (takenNames().has(p.name)) return;
+  d.picks.push({ t: d.rolled, i });
+  d.rolled = null;
+  if (d.picks.length === 5) S.screen = 'roster';
+  render();
+  window.scrollTo(0, 0);
+}
+
+function startSeason() {
+  const taken = takenNames();
+  S.user = buildUserTeam(S.draft.picks);
+  S.league = makeLeague(taken);
+  const res = simSeason(S.user, S.league);
+  S.season = { games: res.games, acc: res.acc, w: res.w, l: res.l, shown: 0 };
+  S.legends = legendsFrom(S.league);
+  S.field = seedField(S.user, res.w, S.legends, S.league);
+  S.screen = 'season';
+  render();
+  window.scrollTo(0, 0);
+  animateSeason();
+}
+
+function animateSeason() {
+  stopTimer();
+  const s = S.season;
+  if (reduced()) { s.shown = 82; render(); return; }
+  const tick = () => {
+    if (S.screen !== 'season') return;
+    s.shown = Math.min(82, s.shown + 1);
+    const g = s.games[s.shown - 1];
+    const strip = $('#strip');
+    if (strip) strip.children[s.shown - 1].className = g.won ? 'w' : 'l';
+    $('#sb-w').textContent = g.w;
+    $('#sb-l').textContent = g.l;
+    $('#sb-g').textContent = `${s.shown} / 82`;
+    $('#lastgame').innerHTML = lastLine(g);
+    if (s.shown < 82) timer = setTimeout(tick, 38);
+    else { timer = null; render(); }
+  };
+  timer = setTimeout(tick, 250);
+}
+
+function skipSeason() { stopTimer(); S.season.shown = 82; render(); }
+
+function startPlayoffs() {
+  const bySeed = {};
+  S.field.forEach(e => bySeed[e.seed] = e);
+  const slots = BRACKET_ORDER.map(sd => bySeed[sd]);
+  const r0 = [];
+  for (let i = 0; i < 16; i += 2) r0.push(newSeries(slots[i], slots[i + 1]));
+  S.po = { round: 0, rounds: [r0], out: false };
+  S.screen = 'playoffs';
+  render();
+  window.scrollTo(0, 0);
+}
+
+function playGame() { const s = userSeries(); if (!s) return; playSeriesGame(s); render(); }
+function simSeries() { const s = userSeries(); if (!s) return; finishSeries(s); render(); }
+
+function userPlayoffAcc() {
+  const acc = {};
+  S.user.starters.forEach(p => acc[p.name] = newAcc());
+  let pw = 0, pl = 0;
+  S.po.rounds.forEach(rs => rs.forEach(s => {
+    const youA = s.a.team.user, youB = s.b.team.user;
+    if (!youA && !youB) return;
+    s.games.forEach(g => {
+      (youA ? g.aBox : g.bBox).slice(0, 5).forEach(l => addLine(acc[l.p.name], l));
+      const yp = youA ? g.aPts : g.bPts, op = youA ? g.bPts : g.aPts;
+      yp > op ? pw++ : pl++;
+    });
+  }));
+  return { acc, pw, pl };
+}
+
+function advance() {
+  const P = S.po;
+  const rs = P.rounds[P.round];
+  rs.forEach(finishSeries);
+  const us = rs.find(s => s.a.team.user || s.b.team.user);
+  const alive = us && us.winner.team.user;
+  if (!alive) {
+    // finish the bracket without the user
+    let r = P.round;
+    while (r < 3) {
+      const winners = P.rounds[r].map(s => s.winner);
+      const next = [];
+      for (let i = 0; i < winners.length; i += 2) {
+        const [x, y] = winners[i].seed < winners[i + 1].seed ? [winners[i], winners[i + 1]] : [winners[i + 1], winners[i]];
+        next.push(newSeries(x, y));
+      }
+      next.forEach(finishSeries);
+      P.rounds.push(next);
+      r++;
+    }
+    const champE = P.rounds[3][0].winner;
+    const opp = us.winner;
+    const yw = us.a.team.user ? us.wa : us.wb, ow = us.a.team.user ? us.wb : us.wa;
+    const { acc, pw, pl } = userPlayoffAcc();
+    const finish = ['Out in the Round of 16', 'Out in the Quarterfinals', 'Out in the Semifinals', 'Lost the Finals'][P.round];
+    S.end = { champion: false, finish, by: opp.team.label, score: `${ow}–${yw}`, champLabel: champE.team.user ? 'Your Five' : champE.team.label, acc, pw, pl };
+    finalizeRun(P.round);
+    return;
+  }
+  if (P.round === 3) {
+    const { acc, pw, pl } = userPlayoffAcc();
+    const fmvpP = S.user.starters.slice().sort((a, b) => acc[b.name].gs - acc[a.name].gs)[0];
+    const beat = P.rounds.map(rs2 => {
+      const s = rs2.find(x => x.a.team.user || x.b.team.user);
+      return (s.a.team.user ? s.b : s.a).team.short;
+    });
+    S.end = { champion: true, finish: 'Champions', beat, fmvp: fmvpP.name, acc, pw, pl };
+    finalizeRun(4);
+    return;
+  }
+  const winners = rs.map(s => s.winner);
+  const next = [];
+  for (let i = 0; i < winners.length; i += 2) {
+    const [x, y] = winners[i].seed < winners[i + 1].seed ? [winners[i], winners[i + 1]] : [winners[i + 1], winners[i]];
+    next.push(newSeries(x, y));
+  }
+  P.rounds.push(next);
+  P.round++;
+  render();
+  window.scrollTo(0, 0);
+}
+
+function finalizeRun(level) {
+  const five = S.user.starters.map(p => p.name.split(' ').slice(-1)[0]).join(', ');
+  saveBest({ level, finish: S.end.finish, w: S.season.w, l: S.season.l, five });
+  S.screen = 'end';
+  render();
+  window.scrollTo(0, 0);
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-action]');
+  if (!b || b.disabled) return;
+  const a = b.dataset.action;
+  if (a === 'start') startDraft();
+  else if (a === 'home') { stopTimer(); S = { screen: 'home' }; render(); window.scrollTo(0, 0); }
+  else if (a === 'roll') roll();
+  else if (a === 'reroll') { if (S.draft.rerolls > 0 && S.draft.rolled != null) { S.draft.rerolls--; S.draft.rolled = null; roll(); } }
+  else if (a === 'pick') draftPick(+b.dataset.i);
+  else if (a === 'season') startSeason();
+  else if (a === 'skip') skipSeason();
+  else if (a === 'playoffs') startPlayoffs();
+  else if (a === 'game') playGame();
+  else if (a === 'simseries') simSeries();
+  else if (a === 'advance') advance();
+});
+
+/* ======================= BOOT ======================= */
+function start(data) {
+  if (data && data.S && data.S.screen) {
+    S = data.S;
+    if (S.draft) S.draft.spinning = false;
+    if (S.screen === 'season' && S.season) S.season.shown = 82;
+  }
+  render();
+}
+if (window.claude && window.claude.hot) {
+  try { window.claude.hot.snapshot(() => ({ S })); } catch (e) { /* hot reload unavailable */ }
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+</body>
+</html>
