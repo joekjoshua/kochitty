@@ -120,6 +120,16 @@
   }
   .tagline { font-size: 19px; font-weight: 500; max-width: 30ch; margin: 22px 0 26px; line-height: 1.4; }
   .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .diff { display: grid; gap: 8px; margin: 0 0 22px; }
+  .diff .lab { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; opacity: .75; }
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 3px; background: rgba(34, 21, 10, .14); border-radius: 8px; padding: 3px; justify-self: start; }
+  .seg button {
+    border: 0; background: transparent; color: var(--floor-ink); border-radius: 6px; padding: 8px 14px;
+    font-family: var(--display); font-weight: 800; font-size: 16px; letter-spacing: .06em; text-transform: uppercase; line-height: 1;
+  }
+  .seg button:hover { background: rgba(34, 21, 10, .12); }
+  .seg button[aria-pressed="true"] { background: var(--floor-ink); color: var(--led); }
+  .diff .rules { font-size: 13px; font-weight: 600; max-width: 46ch; }
   .hero-meta { font-size: 13px; font-weight: 600; letter-spacing: .04em; opacity: .8; }
 
   /* scoreboard (LED) */
@@ -206,6 +216,11 @@
   }
   .ovr.big { width: 54px; height: 54px; font-size: 30px; }
   .meter { margin-top: 14px; display: grid; gap: 6px; }
+  .cap { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+  .cap .bar { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+  .cap .bar i { display: block; height: 100%; background: var(--e00); border-radius: 99px; }
+  .cap .lab { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+  .cap .lab b { color: var(--chalk); font-family: var(--mono); }
   .meter .bar { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
   .meter .bar i { display: block; height: 100%; background: var(--led); border-radius: 99px; transition: width .4s ease; }
   .meter .lab { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
@@ -668,7 +683,25 @@ const TEAMS = RAW.map(([era, season, name, rows], id) => ({
 }));
 
 /* ======================= ENGINE ======================= */
-const BENCH_OVR_USER = 74;
+const DIFFS = {
+  rookie: { label: 'Rookie', rerolls: 2, cap: null, bench: 72, boost: 2 },
+  pro:    { label: 'Pro', rerolls: 1, cap: 460, bench: 72, boost: 1.5 },
+  hof:    { label: 'Hall of Fame', rerolls: 0, cap: 455, bench: 70, boost: 2 },
+};
+const DIFF_KEYS = ['rookie', 'pro', 'hof'];
+const CAP_RESERVE = 76; // every roster has a player at or under 76, so reserving 76 per open pick keeps the draft finishable
+function diffRules(d) {
+  const parts = [d.rerolls === 0 ? 'No rerolls' : d.rerolls === 1 ? 'One reroll' : `${d.rerolls} rerolls`];
+  parts.push(d.cap ? `${d.cap} OVR salary cap` : 'no salary cap');
+  parts.push(`bench rated ${d.bench}`);
+  if (d.boost) parts.push(`legends +${d.boost} in the playoffs`);
+  return parts.join(' · ');
+}
+function maxPickOvr(d, picks) {
+  if (!d.cap) return Infinity;
+  const used = picks.reduce((s, r) => s + TEAMS[r.t].players[r.i].ovr, 0);
+  return d.cap - used - (4 - picks.length) * CAP_RESERVE;
+}
 const FILL_OVR = 72;
 const HOME_EDGE = 1.5;
 const MARGIN_SD = 12;
@@ -734,9 +767,9 @@ function buildRealTeam(t, takenNames) {
   };
 }
 
-function buildUserTeam(picks) {
+function buildUserTeam(picks, benchOvr) {
   const starters = picks.map(r => TEAMS[r.t].players[r.i]);
-  const bench = [0, 1, 2].map(i => ({ ...filler(i), ovr: BENCH_OVR_USER, pts: 6, reb: 3, ast: 1.5 }));
+  const bench = [0, 1, 2].map(i => ({ ...filler(i), ovr: benchOvr, pts: 6, reb: 3, ast: 1.5 }));
   const { rating, chem } = rateLineup(starters, bench);
   return {
     key: 'you', user: true, label: 'Your Five', short: 'Your Five', era: 'mixed',
@@ -859,13 +892,18 @@ const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const f1 = x => (Math.round(x * 10) / 10).toFixed(1);
 
+function loadDiff() { try { const k = localStorage.getItem('eraroll.diff'); return DIFFS[k] ? k : 'pro'; } catch (e) { return 'pro'; } }
+function saveDiff(k) { try { localStorage.setItem('eraroll.diff', k); } catch (e) { /* storage unavailable */ } }
+let DIFF_KEY = loadDiff();
+function curDiff() { return DIFFS[(S && S.diffKey) || DIFF_KEY]; }
+
 function takenNames() { return new Set((S.draft ? S.draft.picks : []).map(r => TEAMS[r.t].players[r.i].name)); }
 
 function loadBest() { try { return JSON.parse(localStorage.getItem('eraroll.best') || 'null'); } catch (e) { return null; } }
 function saveBest(rec) {
   try {
     const prev = loadBest();
-    const score = r => r.level * 100 + r.w;
+    const score = r => (r.diffIdx || 0) * 1000 + r.level * 100 + r.w;
     if (!prev || score(rec) > score(prev)) localStorage.setItem('eraroll.best', JSON.stringify(rec));
   } catch (e) { /* storage unavailable */ }
 }
@@ -894,6 +932,11 @@ function viewHome() {
       <div>
         <h1 class="logo"><span>Era</span><span>Roll</span><span class="sub">Basketball</span></h1>
         <p class="tagline">Roll a random team from a random era. Draft one player off that roster. Do it five times, play 82 games, then survive the greatest teams of every decade.</p>
+        <div class="diff">
+          <span class="lab">Difficulty</span>
+          <div class="seg" role="group" aria-label="Difficulty">${DIFF_KEYS.map(k => `<button data-action="diff" data-k="${k}" aria-pressed="${k === DIFF_KEY}">${DIFFS[k].label}</button>`).join('')}</div>
+          <span class="rules">${esc(diffRules(DIFFS[DIFF_KEY]))}</span>
+        </div>
         <div class="hero-actions">
           <button class="btn dark" data-action="start" id="start-btn">Start a draft</button>
           <span class="hero-meta">${TEAMS.length} team-seasons · ${ERAS.length} eras · 1980s to 2020s</span>
@@ -905,7 +948,7 @@ function viewHome() {
           <div class="reel"><div class="k">SEASON</div><div class="v">${demo.season}</div></div>
           <div class="reel wide"><div class="k">TEAM</div><div class="v">${esc(demo.name)}</div></div>
         </div>
-        <div class="foot"><span>PICK 1 OF 5</span><span>REROLLS 2</span></div>
+        <div class="foot"><span>PICK 1 OF 5</span><span>REROLLS ${DIFFS[DIFF_KEY].rerolls}</span></div>
       </div>
     </div>
   </header>
@@ -913,10 +956,10 @@ function viewHome() {
     <section>
       <div class="sec-head"><div><div class="eyebrow">How a run works</div><h2>Four stages</h2></div></div>
       <div class="steps">
-        <div class="step"><div class="n">1</div><h3>Roll</h3><p>The board lands on a random era, then a random team from it. Two rerolls per draft.</p></div>
+        <div class="step"><div class="n">1</div><h3>Roll</h3><p>The board lands on a random era, then a random team from it. Rerolls and the salary cap depend on difficulty.</p></div>
         <div class="step"><div class="n">2</div><h3>Draft</h3><p>Pick one player from that roster. Every card shows points, rebounds, assists, steals, blocks and FG%.</p></div>
         <div class="step"><div class="n">3</div><h3>Season</h3><p>Your five play 82 games against every team-season in the pool. Your record sets your playoff seed.</p></div>
-        <div class="step"><div class="n">4</div><h3>Playoffs</h3><p>A 16-team bracket: you plus the three best teams of each era. Four best-of-seven rounds.</p></div>
+        <div class="step"><div class="n">4</div><h3>Playoffs</h3><p>A 16-team bracket: you plus the three best teams of each era. Four best-of-seven rounds, and legends raise their level on harder settings.</p></div>
       </div>
     </section>
     <section>
@@ -928,7 +971,7 @@ function viewHome() {
         </div>`).join('')}
       </div>
     </section>
-    ${best ? `<section class="best"><span class="eyebrow">Your best run</span><b>${esc(best.finish)}</b><span class="num">${best.w}–${best.l}</span><span style="color:var(--muted)">${esc(best.five)}</span></section>` : ''}
+    ${best ? `<section class="best"><span class="eyebrow">Your best run</span><b>${esc(best.finish)}</b>${best.diff ? `<span class="chip">${esc(best.diff)}</span>` : ''}<span class="num">${best.w}–${best.l}</span><span style="color:var(--muted)">${esc(best.five)}</span></section>` : ''}
     <p class="fine">Player numbers are approximate regular-season averages for the listed season. Ratings and results are a simulation. Fan-made game, not affiliated with any league or team.</p>
   </main>`;
 }
@@ -938,7 +981,8 @@ function topbar(stage) {
   const idx = stages.indexOf(stage);
   return `<div class="topbar"><div class="wrap">
     <button class="mark" data-action="home" title="Back to the home screen">Era Roll</button>
-    <nav class="progress" aria-label="Stage">${stages.map((s, i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}">${s}</span>`).join('')}</nav>
+    <span class="chip">${esc(curDiff().label)}</span>
+    <nav class="progress" aria-label="Stage" style="margin-left:auto">${stages.map((s, i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}">${s}</span>`).join('')}</nav>
   </div></div>`;
 }
 
@@ -966,7 +1010,8 @@ function playerCard(p, { action, disabled, why, origin } = {}) {
   </${tag}>`;
 }
 
-function slotsView(picks) {
+function slotsView(picks, withCap) {
+  const D = curDiff();
   const players = picks.map(r => TEAMS[r.t].players[r.i]);
   const rows = [];
   for (let i = 0; i < 5; i++) {
@@ -977,13 +1022,21 @@ function slotsView(picks) {
   }
   let meter = '';
   if (players.length) {
-    const bench = [0, 1, 2].map(() => ({ ovr: BENCH_OVR_USER }));
-    const { rating, chem } = players.length === 5 ? rateLineup(players, bench) : { rating: 0.8 * avg(players.map(p => p.ovr)) + 0.2 * BENCH_OVR_USER, chem: { notes: [] } };
+    const bench = [0, 1, 2].map(() => ({ ovr: D.bench }));
+    const { rating, chem } = players.length === 5 ? rateLineup(players, bench) : { rating: 0.8 * avg(players.map(p => p.ovr)) + 0.2 * D.bench, chem: { notes: [] } };
     const pct = clamp((rating - 70) / 30 * 100, 0, 100);
     meter = `<div class="meter"><div class="lab"><span>${players.length === 5 ? 'Team rating' : 'Rating so far'}</span><b>${f1(rating)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
       ${chem.notes.length ? `<ul class="notes">${chem.notes.map(n => `<li class="${n.bad ? 'bad' : ''}">${esc(n.t)}</li>`).join('')}</ul>` : ''}`;
   }
-  return `<div class="slots">${rows.join('')}</div>${meter}`;
+  let cap = '';
+  if (withCap && D.cap) {
+    const used = players.reduce((s, p) => s + p.ovr, 0);
+    const max = maxPickOvr(D, picks);
+    cap = `<div class="cap"><div class="lab"><span>Salary cap (total OVR)</span><b>${used} / ${D.cap}</b></div>
+      <div class="bar"><i style="width:${clamp(used / D.cap * 100, 0, 100)}%"></i></div>
+      ${players.length < 5 ? `<div class="lab"><span>Most you can spend on this pick</span><b>${max}</b></div>` : ''}</div>`;
+  }
+  return `<div class="slots">${rows.join('')}</div>${meter}${cap}`;
 }
 
 function viewDraft() {
@@ -997,16 +1050,20 @@ function viewDraft() {
   let roster = '';
   if (t && !d.spinning) {
     const ps = t.players.slice().sort((a, b) => b.ovr - a.ovr);
+    const max = maxPickOvr(curDiff(), d.picks);
     roster = `<section class="panel"><h2>Pick from the ${esc(teamLabel(t))}</h2>
-      <div class="cards">${ps.map(p => playerCard(p, { action: 'pick', disabled: taken.has(p.name), why: taken.has(p.name) ? 'Already on your team (another season)' : '' })).join('')}</div></section>`;
+      <div class="cards">${ps.map(p => {
+        const why = taken.has(p.name) ? 'Already on your team (another season)' : p.ovr > max ? `Over the cap: ${max} OVR max on this pick` : '';
+        return playerCard(p, { action: 'pick', disabled: !!why, why });
+      }).join('')}</div></section>`;
   }
   const canRoll = !d.spinning && t == null;
   const canReroll = !d.spinning && t != null && d.rerolls > 0;
   return `${topbar('Draft')}
   <main class="wrap screen">
-    <div><h1>Pick ${Math.min(n + 1, 5)} of 5</h1><p class="lede">Roll the board, then draft one player from the team it lands on. A balanced five with guards and bigs plays better than five scorers.</p></div>
+    <div><h1>Pick ${Math.min(n + 1, 5)} of 5</h1><p class="lede">Roll the board, then draft one player from the team it lands on. A balanced five with guards and bigs plays better than five scorers.${curDiff().cap ? ` Your five must fit under a ${curDiff().cap} total OVR cap, so plan where to spend.` : ''}</p></div>
     <div class="draft-grid">
-      <aside class="panel"><h2>Your five</h2>${slotsView(d.picks)}</aside>
+      <aside class="panel"><h2>Your five</h2>${slotsView(d.picks, true)}</aside>
       <div style="display:grid;gap:18px;min-width:0">
         <div class="board">
           <div class="row">
@@ -1028,14 +1085,14 @@ function viewDraft() {
 
 function viewRoster() {
   const d = S.draft;
-  const user = buildUserTeam(d.picks);
+  const user = buildUserTeam(d.picks, curDiff().bench);
   const league = makeLeague(takenNames());
   const proj = Math.round(expectedWins(user, league));
   return `${topbar('Season')}
   <main class="wrap screen">
-    <div><h1>Your five is set</h1><p class="lede">Three generic reserves (rated ${BENCH_OVR_USER}) fill your bench. The rating below weights starters 80% and bench 20%, plus lineup adjustments.</p></div>
+    <div><h1>Your five is set</h1><p class="lede">Three generic reserves (rated ${curDiff().bench}) fill your bench. The rating below weights starters 80% and bench 20%, plus lineup adjustments.</p></div>
     <div class="two">
-      <section class="panel"><h2>Lineup</h2>${slotsView(d.picks)}</section>
+      <section class="panel"><h2>Lineup</h2>${slotsView(d.picks, true)}</section>
       <section class="panel"><h2>Outlook</h2>
         <div class="facts">
           <div class="fact"><span>Rating</span><b class="num">${f1(user.rating)}</b></div>
@@ -1190,7 +1247,7 @@ function viewPlayoffs() {
   }
   return `${topbar('Playoffs')}
   <main class="wrap screen">
-    <div><h1>The gauntlet</h1><p class="lede">You against the three best teams of every era. Higher seed hosts games 1, 2, 5 and 7.</p></div>
+    <div><h1>The gauntlet</h1><p class="lede">You against the three best teams of every era. Higher seed hosts games 1, 2, 5 and 7.${curDiff().boost ? ` On ${esc(curDiff().label)}, every legend plays at +${curDiff().boost} rating.` : ''}</p></div>
     ${panel}
     <section class="panel"><h2>Bracket</h2>${bracketView()}</section>
   </main>`;
@@ -1240,7 +1297,7 @@ function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
 
 function startDraft() {
   stopTimer();
-  S = { screen: 'draft', draft: { picks: [], rolled: null, rerolls: 2, usedTeams: [], spinning: false } };
+  S = { screen: 'draft', diffKey: DIFF_KEY, draft: { picks: [], rolled: null, rerolls: DIFFS[DIFF_KEY].rerolls, usedTeams: [], spinning: false } };
   render();
   window.scrollTo(0, 0);
 }
@@ -1290,7 +1347,7 @@ function draftPick(i) {
 
 function startSeason() {
   const taken = takenNames();
-  S.user = buildUserTeam(S.draft.picks);
+  S.user = buildUserTeam(S.draft.picks, curDiff().bench);
   S.league = makeLeague(taken);
   const res = simSeason(S.user, S.league);
   S.season = { games: res.games, acc: res.acc, w: res.w, l: res.l, shown: 0 };
@@ -1325,6 +1382,8 @@ function animateSeason() {
 function skipSeason() { stopTimer(); S.season.shown = 82; render(); }
 
 function startPlayoffs() {
+  const boost = curDiff().boost;
+  if (boost) S.field.forEach(e => { if (!e.team.user) e.team = { ...e.team, rating: e.team.rating + boost }; });
   const bySeed = {};
   S.field.forEach(e => bySeed[e.seed] = e);
   const slots = BRACKET_ORDER.map(sd => bySeed[sd]);
@@ -1409,7 +1468,7 @@ function advance() {
 
 function finalizeRun(level) {
   const five = S.user.starters.map(p => p.name.split(' ').slice(-1)[0]).join(', ');
-  saveBest({ level, finish: S.end.finish, w: S.season.w, l: S.season.l, five });
+  saveBest({ level, finish: S.end.finish, w: S.season.w, l: S.season.l, five, diff: curDiff().label, diffIdx: DIFF_KEYS.indexOf(S.diffKey) });
   S.screen = 'end';
   render();
   window.scrollTo(0, 0);
@@ -1421,6 +1480,7 @@ document.addEventListener('click', e => {
   const a = b.dataset.action;
   if (a === 'start') startDraft();
   else if (a === 'home') { stopTimer(); S = { screen: 'home' }; render(); window.scrollTo(0, 0); }
+  else if (a === 'diff') { DIFF_KEY = b.dataset.k; saveDiff(DIFF_KEY); render(); }
   else if (a === 'roll') roll();
   else if (a === 'reroll') { if (S.draft.rerolls > 0 && S.draft.rolled != null) { S.draft.rerolls--; S.draft.rolled = null; roll(); } }
   else if (a === 'pick') draftPick(+b.dataset.i);
