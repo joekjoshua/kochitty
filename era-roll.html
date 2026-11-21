@@ -261,6 +261,20 @@
   .budget-line .need b { font-family: var(--mono); font-weight: 600; color: var(--chalk); }
   .budget-line .need:first-child b { color: var(--led); }
 
+  /* draft dock: lineup + needs stay pinned under the app bar and compact once the page scrolls */
+  .dock {
+    position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--bar-h) + 3px); z-index: 8;
+    display: grid; gap: 10px; margin: -10px -16px 0; padding: 10px 16px; background: var(--night);
+    transition: box-shadow .2s ease;
+  }
+  .dock.compact { box-shadow: 0 12px 18px -10px rgba(0, 0, 0, .7); }
+  .dock .strip5 { transition: padding .2s ease; }
+  .dock.compact .strip5 { padding: 8px 10px; gap: 0; }
+  .dock.compact .strip5-head { display: none; }
+  .dock.compact .s5 .ring { width: 38px; height: 38px; font-size: 17px; }
+  .dock.compact .s5 small { display: none; }
+  .s5 .ring { transition: width .2s ease, height .2s ease, font-size .2s ease; }
+
   /* lineup strip */
   .strip5 { display: grid; gap: 10px; width: 100%; border: 0; text-align: left; color: var(--chalk); }
   .strip5:active { background: var(--panel-2); }
@@ -1120,7 +1134,7 @@ function finishSeries(s) { while (!s.done) playSeriesGame(s); }
 
 /* ======================= STATE ======================= */
 let S = { screen: 'home' };
-const UI = { sheet: null, tab: 'plan', homeEra: '1990s', toast: '', toastId: 0, lastScreen: null, popSlot: null, landed: false };
+const UI = { dockCompact: false, sheet: null, tab: 'plan', homeEra: '1990s', toast: '', toastId: 0, lastScreen: null, popSlot: null, landed: false };
 const reduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1354,8 +1368,7 @@ function viewDraft() {
     }
   }
   return appbar(`Pick ${n + 1} of 5`, 'Draft', 0) + page(`
-    ${lineupStrip(players)}
-    ${needsRow(players)}
+    <div class="dock ${UI.dockCompact ? 'compact' : ''}" id="dock">${lineupStrip(players)}${needsRow(players)}</div>
     ${stage}`) + actionbar(
     // While choosing, the player rows are the action; reroll is a small side control in the roster header.
     t && !d.spinning ? [] : [{ label: d.spinning ? 'Rolling…' : 'Roll', action: 'roll', id: 'roll-btn', primary: true, disabled: d.spinning }]);
@@ -1631,6 +1644,16 @@ function applyTheme() {
   const m = document.querySelector('meta[name="theme-color"]');
   if (m) m.setAttribute('content', THEME_BAR[k]);
 }
+// Compact the draft dock after scrolling; hysteresis stops it flickering when its height change moves the page.
+function updateDock() {
+  const y = lockY !== null ? lockY : window.scrollY;
+  const next = UI.dockCompact ? y > 8 : y > 60;
+  if (next === UI.dockCompact) return;
+  UI.dockCompact = next;
+  const d = document.getElementById('dock');
+  if (d) d.classList.toggle('compact', next);
+}
+window.addEventListener('scroll', updateDock, { passive: true });
 function render() {
   const changed = UI.lastScreen !== S.screen;
   UI.lastScreen = S.screen;
@@ -1638,6 +1661,8 @@ function render() {
   setLock(!!UI.sheet);
   applyTheme();
   UI.popSlot = null; UI.landed = false; // one-shot animations play on a single render
+  if (changed) UI.dockCompact = false;
+  updateDock();
   if (changed) {
     window.scrollTo(0, 0);
     const m = $('#main');
