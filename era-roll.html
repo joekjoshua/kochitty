@@ -203,6 +203,35 @@
   .capline { display: flex; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; margin-top: 10px; font-family: var(--mono); font-size: 12px; color: var(--led-soft); }
   .capline b { color: var(--led); font-weight: 600; }
 
+  /* pre-roll pick card and budget */
+  .pickhero {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center;
+    background: var(--board); border-radius: 18px; padding: 18px; box-shadow: inset 0 0 0 1px var(--reel-line);
+  }
+  .pickhero .big-ring {
+    width: 108px; height: 108px; border-radius: 50%; display: grid; place-items: center;
+    border: 3px solid var(--led); background: color-mix(in srgb, var(--led) 12%, transparent);
+    font-family: var(--display); font-weight: 900; font-size: 70px; line-height: 1; color: var(--led);
+    text-shadow: 0 0 18px color-mix(in srgb, var(--led) 55%, transparent);
+    animation: slotPulse 1.6s ease-in-out infinite;
+  }
+  .pickhero .k { display: block; font-family: var(--display); font-weight: 700; font-size: 12px; letter-spacing: .2em; color: var(--led-soft); }
+  .pickhero b { display: block; font-family: var(--display); font-weight: 800; font-size: 26px; line-height: 1; text-transform: uppercase; margin: 6px 0 6px; }
+  .pickhero .d { display: block; font-size: 13px; color: var(--muted); }
+  .budget { display: grid; gap: 10px; }
+  .btiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .btiles > div { background: var(--panel-2); border-radius: 12px; padding: 10px 12px; display: grid; gap: 1px; }
+  .btiles .k { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+  .btiles b { font-family: var(--mono); font-weight: 600; font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .btiles b.hi { color: var(--led); }
+  .btiles .d { font-size: 12px; color: var(--muted); }
+  .budget .bar { height: 6px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+  .budget .bar i { display: block; height: 100%; background: var(--led); border-radius: 99px; }
+  .budget-line { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .budget-line .need { font-weight: 500; color: var(--muted); }
+  .budget-line .need b { font-family: var(--mono); font-weight: 600; color: var(--chalk); }
+  .budget-line .need:first-child b { color: var(--led); }
+
   /* lineup strip */
   .strip5 { display: grid; gap: 10px; width: 100%; border: 0; text-align: left; color: var(--chalk); }
   .strip5:active { background: var(--panel-2); }
@@ -1241,43 +1270,66 @@ function viewHome() {
   ${actionbar([{ label: 'Start a draft', action: 'start', primary: true, id: 'start-btn' }])}`;
 }
 
+function budgetFull() {
+  const D = curDiff();
+  if (!D.cap) return '';
+  const picks = S.draft.picks, used = capUsed(), room = D.cap - used;
+  const max = maxPickOvr(D, picks), others = 4 - picks.length;
+  return `<section class="card budget">
+    <div class="btiles">
+      <div><span class="k">Max this pick</span><b class="hi">${max}</b><span class="d">OVR</span></div>
+      <div><span class="k">Cap room</span><b>${room}</b><span class="d">of ${D.cap} OVR</span></div>
+    </div>
+    <div class="bar" aria-hidden="true"><i style="width:${clamp(used / D.cap * 100, 0, 100)}%"></i></div>
+    <p class="fine">A player's OVR is his salary.${others ? ` The max keeps ${CAP_RESERVE} OVR of room for each of your other ${others} open slot${others > 1 ? 's' : ''}.` : ' Last pick: spend what is left.'}</p>
+  </section>`;
+}
+function budgetLine() {
+  const D = curDiff();
+  if (!D.cap) return '';
+  return `<div class="budget-line"><span class="need"><b>${maxPickOvr(D, S.draft.picks)}</b> max this pick</span><span class="need"><b>${D.cap - capUsed()}</b> cap room</span></div>`;
+}
+
 function viewDraft() {
-  const d = S.draft, D = curDiff();
+  const d = S.draft;
   const players = picksPlayers();
   const n = players.length;
   const t = d.rolled != null ? TEAMS[d.rolled] : null;
-  const eraTxt = d.spinning ? '····' : t ? t.era : '—';
-  const seasonTxt = d.spinning ? '····' : t ? t.season : '—';
-  const teamTxt = d.spinning ? 'Rolling…' : t ? t.name : `Roll for pick ${n + 1}`;
-  const capline = D.cap
-    ? `<div class="capline"><b>CAP ${capUsed()} / ${D.cap} OVR</b><span>MAX THIS PICK ${maxPickOvr(D, d.picks)} · OVR IS SALARY</span></div>`
-    : `<div class="capline"><b>NO SALARY CAP</b><span>${esc(D.label.toUpperCase())}</span></div>`;
-  let body;
-  if (t && !d.spinning) {
-    const ps = t.players.slice().sort((a, b) => b.ovr - a.ovr);
-    body = `<section><div class="sec"><span>${esc(teamLabel(t))}<span class="sec-sub" style="display:block;margin-top:2px">Tap a player to see his card</span></span>
-        <button class="link-btn" data-action="reroll" id="reroll-btn" ${d.rerolls > 0 ? '' : 'disabled'}>↻ Reroll · ${d.rerolls}</button></div>
-      <div class="list">${ps.map(p => playerRow(p, { action: 'sheet-player', why: pickBlock(p) })).join('')}</div></section>`;
+  let stage;
+  if (!t && !d.spinning) {
+    // Before the roll: the pick itself is the subject, and the budget is first-class information.
+    stage = `<section class="pickhero">
+        <div class="big-ring" aria-hidden="true">${n + 1}</div>
+        <div><span class="k">PICK ${n + 1} OF 5</span><b>${n === 4 ? 'Last pick' : 'Roll for your next player'}</b>
+          <span class="d">The board lands on a random era, then a random team from it.</span></div>
+      </section>
+      ${budgetFull()}`;
   } else {
-    body = ''; // the board and the Roll button already say what to do; no separate empty-state box
-  }
-  const canRoll = !d.spinning && !t;
-  const canReroll = !d.spinning && !!t && d.rerolls > 0;
-  return appbar(`Pick ${n + 1} of 5`, 'Draft', 0) + page(`
-    ${lineupStrip(players)}
-    ${needsRow(players)}
-    <div class="board">
+    // Rolling and rolled: the reels carry real values.
+    const eraTxt = d.spinning ? '····' : t.era;
+    const seasonTxt = d.spinning ? '····' : t.season;
+    const teamTxt = d.spinning ? 'Rolling…' : t.name;
+    stage = `<div class="board">
       <div class="reels">
         <div class="reel ${d.spinning ? 'spin' : ''}"><div class="k">ERA</div><div class="v" id="reelEra">${eraTxt}</div></div>
         <div class="reel ${d.spinning ? 'spin' : ''}"><div class="k">SEASON</div><div class="v" id="reelSeason">${seasonTxt}</div></div>
         <div class="reel wide ${d.spinning ? 'spin' : ''}"><div class="k">TEAM</div><div class="v" id="reelTeam">${esc(teamTxt)}</div></div>
       </div>
-      ${capline}
-    </div>
-    ${body}`) + actionbar(
-    // While choosing from a rolled roster the rows are the action, so the bar only offers a reroll (or nothing).
+    </div>`;
+    if (t && !d.spinning) {
+      const ps = t.players.slice().sort((a, b) => b.ovr - a.ovr);
+      stage += `<section><div class="sec"><span>Roster<span class="sec-sub" style="display:block;margin-top:2px">Tap a player to see his card</span></span>
+          <button class="link-btn" data-action="reroll" id="reroll-btn" ${d.rerolls > 0 ? '' : 'disabled'}>↻ Reroll · ${d.rerolls}</button></div>
+        ${budgetLine()}
+        <div class="list">${ps.map(p => playerRow(p, { action: 'sheet-player', why: pickBlock(p) })).join('')}</div></section>`;
+    }
+  }
+  return appbar(`Pick ${n + 1} of 5`, 'Draft', 0) + page(`
+    ${lineupStrip(players)}
+    ${needsRow(players)}
+    ${stage}`) + actionbar(
     // While choosing, the player rows are the action; reroll is a small side control in the roster header.
-    t && !d.spinning ? [] : [{ label: d.spinning ? 'Rolling…' : 'Roll', action: 'roll', id: 'roll-btn', primary: true, disabled: !canRoll }]);
+    t && !d.spinning ? [] : [{ label: d.spinning ? 'Rolling…' : 'Roll', action: 'roll', id: 'roll-btn', primary: true, disabled: d.spinning }]);
 }
 
 function viewRoster() {
