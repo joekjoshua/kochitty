@@ -184,6 +184,23 @@
   .topbar { border-bottom: 1px solid var(--line); background: var(--panel); }
   .topbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px; flex-wrap: wrap; }
   .mark { font-family: var(--display); font-weight: 900; font-size: 24px; letter-spacing: .02em; text-transform: uppercase; color: var(--led); background: none; border: 0; padding: 0; }
+  .diffwrap { position: relative; }
+  .chip-btn { background: transparent; cursor: pointer; border-color: var(--led); color: var(--led); font-family: var(--body); padding: 5px 10px; }
+  .chip-btn:hover { background: rgba(255, 182, 39, .1); }
+  .diffmenu {
+    position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
+    width: min(320px, calc(100vw - 32px)); display: grid; gap: 4px; padding: 6px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 18px 40px rgba(0,0,0,.45);
+  }
+  .diffmenu .opt { text-align: left; border: 0; background: transparent; border-radius: 6px; padding: 8px 10px; display: grid; gap: 2px; }
+  .diffmenu .opt:hover:not(:disabled) { background: var(--panel); }
+  .diffmenu .opt[aria-checked="true"] { box-shadow: inset 0 0 0 1.5px var(--led); }
+  .diffmenu .opt b { font-family: var(--display); font-weight: 800; font-size: 18px; letter-spacing: .04em; text-transform: uppercase; }
+  .diffmenu .opt span { font-size: 12px; color: var(--muted); }
+  .diffmenu .opt .no { color: var(--loss); font-weight: 600; }
+  .diffmenu .note { font-size: 12px; color: var(--faint); padding: 4px 10px 2px; }
+  .capline { display: flex; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid #2B2410; font-family: var(--mono); font-size: 13px; color: var(--led); }
+  .capline span { color: #A47A1D; }
   .progress { display: flex; gap: 4px; flex-wrap: wrap; }
   .progress span {
     font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: .1em; text-transform: uppercase;
@@ -378,6 +395,12 @@
     .draft-grid, .two { grid-template-columns: minmax(0, 1fr); }
     .draft-grid > aside { order: 2; }
     .plans, .scout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .topbar .wrap { justify-content: flex-start; }
+    .diffmenu {
+      position: fixed; width: auto;
+      top: calc(env(safe-area-inset-top, 0px) + 58px);
+      left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+    }
   }
   @media (max-width: 520px) {
     .steps { grid-template-columns: minmax(0, 1fr); }
@@ -1125,12 +1148,35 @@ function viewHome() {
   </main>`;
 }
 
+function switchBlock(k) {
+  // A harder cap can strand a draft in progress: every open pick needs room for a 76 OVR player.
+  const D = DIFFS[k];
+  if (S.screen !== 'draft' || !D.cap) return '';
+  const picks = S.draft.picks;
+  if (picks.length >= 5) return '';
+  return maxPickOvr(D, picks) < CAP_RESERVE ? `Your picks already use too much of the ${D.cap} cap` : '';
+}
+function diffMenuView() {
+  const started = S.screen !== 'draft' || S.draft.picks.length > 0;
+  return `<div class="diffmenu" role="menu">
+    ${DIFF_KEYS.map(k => {
+      const D = DIFFS[k], blocked = switchBlock(k);
+      return `<button class="opt" role="menuitemradio" aria-checked="${k === S.diffKey}" data-action="setdiff" data-k="${k}" ${blocked ? 'disabled' : ''}>
+        <b>${D.label}</b><span>${esc(diffRules(D))}</span>${blocked ? `<span class="no">${esc(blocked)}</span>` : ''}</button>`;
+    }).join('')}
+    ${started ? `<div class="note">Applies from now on. Games already played stay as they are. Your best run records the easiest level you used.</div>` : ''}
+  </div>`;
+}
+
 function topbar(stage) {
   const stages = ['Draft', 'Season', 'Playoffs'];
   const idx = stages.indexOf(stage);
   return `<div class="topbar"><div class="wrap">
     <button class="mark" data-action="home" title="Back to the home screen">Era Roll</button>
-    <span class="chip">${esc(curDiff().label)}</span>
+    <div class="diffwrap">
+      <button class="chip chip-btn" data-action="diffmenu" id="diff-btn" aria-haspopup="true" aria-expanded="${!!S.diffMenu}" title="Change difficulty">${esc(curDiff().label)} ▾</button>
+      ${S.diffMenu ? diffMenuView() : ''}
+    </div>
     <nav class="progress" aria-label="Stage" style="margin-left:auto">${stages.map((s, i) => `<span class="${i === idx ? 'on' : i < idx ? 'done' : ''}">${s}</span>`).join('')}</nav>
   </div></div>`;
 }
@@ -1187,7 +1233,7 @@ function slotsView(picks, withCap) {
       <div class="bar"><i style="width:${clamp(used / D.cap * 100, 0, 100)}%"></i></div>
       ${players.length < 5 ? `<div class="lab"><span>Most you can spend on this pick</span><b>${max}</b></div>` : ''}</div>`;
   }
-  return `<div class="slots">${rows.join('')}</div>${meter}${cap}`;
+  return `<div class="slots">${rows.join('')}</div>${cap}${meter}`;
 }
 
 function viewDraft() {
@@ -1227,6 +1273,12 @@ function viewDraft() {
             <button class="btn ghost small" data-action="reroll" id="reroll-btn" ${canReroll ? '' : 'disabled'}>Reroll (${d.rerolls} left)</button>
             <span class="hint">${t && !d.spinning ? 'Choose a player below' : ''}</span>
           </div>
+          ${(() => {
+            const D = curDiff();
+            if (!D.cap) return `<div class="capline">NO SALARY CAP <span>${esc(D.label)}</span></div>`;
+            const used = d.picks.reduce((a, r) => a + TEAMS[r.t].players[r.i].ovr, 0);
+            return `<div class="capline">CAP ${used} / ${D.cap} OVR${d.picks.length < 5 ? ` · MAX THIS PICK ${maxPickOvr(D, d.picks)}` : ''} <span>A player's OVR is his salary</span></div>`;
+          })()}
         </div>
         ${roster}
       </div>
@@ -1482,7 +1534,7 @@ function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
 
 function startDraft() {
   stopTimer();
-  S = { screen: 'draft', diffKey: DIFF_KEY, draft: { picks: [], rolled: null, rerolls: DIFFS[DIFF_KEY].rerolls, usedTeams: [], spinning: false } };
+  S = { screen: 'draft', diffKey: DIFF_KEY, minDiff: DIFF_KEYS.indexOf(DIFF_KEY), draft: { picks: [], rolled: null, rerolls: DIFFS[DIFF_KEY].rerolls, usedTeams: [], spinning: false } };
   render();
   window.scrollTo(0, 0);
 }
@@ -1568,7 +1620,7 @@ function skipSeason() { stopTimer(); S.season.shown = 82; render(); }
 
 function startPlayoffs() {
   const boost = curDiff().boost;
-  if (boost) S.field.forEach(e => { if (!e.team.user) e.team = { ...e.team, rating: e.team.rating + boost }; });
+  S.field.forEach(e => { if (!e.team.user) { e.base = e.team.rating; e.team = { ...e.team, rating: e.base + boost }; } });
   const bySeed = {};
   S.field.forEach(e => bySeed[e.seed] = e);
   const slots = BRACKET_ORDER.map(sd => bySeed[sd]);
@@ -1664,16 +1716,39 @@ function advance() {
 
 function finalizeRun(level) {
   const five = S.user.starters.map(p => p.name.split(' ').slice(-1)[0]).join(', ');
-  saveBest({ level, finish: S.end.finish, w: S.season.w, l: S.season.l, five, diff: curDiff().label, diffIdx: DIFF_KEYS.indexOf(S.diffKey) });
+  saveBest({ level, finish: S.end.finish, w: S.season.w, l: S.season.l, five, diff: DIFFS[DIFF_KEYS[S.minDiff ?? DIFF_KEYS.indexOf(S.diffKey)]].label, diffIdx: S.minDiff ?? DIFF_KEYS.indexOf(S.diffKey) });
   S.screen = 'end';
   render();
   window.scrollTo(0, 0);
 }
 
+function applyDiff(k) {
+  const old = S.diffKey || DIFF_KEY;
+  DIFF_KEY = k; saveDiff(k);
+  S.diffMenu = false;
+  if (!S.diffKey) { render(); return; }
+  if (S.draft) {
+    const used = DIFFS[old].rerolls - S.draft.rerolls;
+    S.draft.rerolls = Math.max(0, DIFFS[k].rerolls - used);
+  }
+  S.diffKey = k;
+  S.minDiff = Math.min(S.minDiff ?? DIFF_KEYS.indexOf(old), DIFF_KEYS.indexOf(k));
+  if (S.user) {
+    const nu = buildUserTeam(S.draft.picks, DIFFS[k].bench);
+    if (S.field) S.field.forEach(e => { if (e.team.user) e.team = nu; });
+    S.user = nu;
+  }
+  if (S.po) S.field.forEach(e => { if (!e.team.user && e.base != null) e.team = { ...e.team, rating: e.base + DIFFS[k].boost }; });
+  render();
+}
+
 document.addEventListener('click', e => {
+  if (S.diffMenu && !e.target.closest('.diffwrap')) { S.diffMenu = false; render(); }
   const b = e.target.closest('[data-action]');
-  if (!b || b.disabled) return;
+  if (!b || b.disabled || !document.contains(b)) return;
   const a = b.dataset.action;
+  if (a === 'diffmenu') { S.diffMenu = !S.diffMenu; render(); return; }
+  if (a === 'setdiff') { applyDiff(b.dataset.k); return; }
   if (a === 'start') startDraft();
   else if (a === 'home') { stopTimer(); S = { screen: 'home' }; render(); window.scrollTo(0, 0); }
   else if (a === 'diff') { DIFF_KEY = b.dataset.k; saveDiff(DIFF_KEY); render(); }
@@ -1689,11 +1764,16 @@ document.addEventListener('click', e => {
   else if (a === 'advance') advance();
 });
 
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && S.diffMenu) { S.diffMenu = false; render(); const b = $('#diff-btn'); if (b) b.focus(); }
+});
+
 /* ======================= BOOT ======================= */
 function start(data) {
   if (data && data.S && data.S.screen) {
     S = data.S;
     if (S.draft) S.draft.spinning = false;
+    S.diffMenu = false;
     if (S.screen === 'season' && S.season) S.season.shown = 82;
   }
   render();
