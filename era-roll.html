@@ -1242,10 +1242,14 @@ function viewDraft() {
       </div>
       ${capline}
     </div>
-    ${body}`) + actionbar([
-    { label: `Reroll · ${d.rerolls}`, action: 'reroll', id: 'reroll-btn', disabled: !canReroll },
-    { label: t && !d.spinning ? 'Pick a player' : 'Roll', action: 'roll', id: 'roll-btn', primary: true, disabled: !canRoll },
-  ]);
+    ${body}`) + actionbar(
+    // While choosing from a rolled roster the rows are the action, so the bar only offers a reroll (or nothing).
+    t && !d.spinning
+      ? (canReroll ? [{ label: `Reroll this team · ${d.rerolls} left`, action: 'reroll', id: 'reroll-btn' }] : [])
+      : [
+          { label: `Reroll · ${d.rerolls}`, action: 'reroll', id: 'reroll-btn', disabled: true },
+          { label: d.spinning ? 'Rolling…' : 'Roll', action: 'roll', id: 'roll-btn', primary: true, disabled: !canRoll },
+        ]);
 }
 
 function viewRoster() {
