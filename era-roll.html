@@ -218,6 +218,7 @@
   .wipe-in b { font-family: var(--display); font-weight: 900; font-size: clamp(48px, 16vw, 148px); line-height: .85; text-transform: uppercase; white-space: nowrap; }
   .wipe-in b.long { font-size: clamp(40px, 12.5vw, 120px); }
   .wipe-in .sub { font-weight: 700; font-size: 15px; }
+  .wipe-in .note { font-weight: 600; font-size: 13px; opacity: .7; }
   .wipe.out .slab { animation: wipeOut .4s cubic-bezier(.75, 0, .25, 1) forwards; }
   .wipe.out .slab.dark { animation-delay: .07s; }
   @keyframes wipeIn { from { transform: translateX(125%) skewX(-14deg); } to { transform: translateX(0) skewX(-14deg); } }
@@ -1693,7 +1694,7 @@ function playTransition(cfg, swap, after) {
   el.className = 'wipe' + (cfg.tone === 'loss' ? ' loss' : '');
   el.setAttribute('role', 'status');
   el.innerHTML = `<div class="slab dark"></div><div class="slab lit"><div class="wipe-in">
-    ${cfg.kicker ? `<span class="kicker">${esc(cfg.kicker)}</span>` : ''}<b class="${cfg.title.length > 10 ? 'long' : ''}">${esc(cfg.title)}</b>${cfg.sub ? `<span class="sub">${esc(cfg.sub)}</span>` : ''}
+    ${cfg.kicker ? `<span class="kicker">${esc(cfg.kicker)}</span>` : ''}<b class="${cfg.title.length > 10 ? 'long' : ''}">${esc(cfg.title)}</b>${cfg.sub ? `<span class="sub">${esc(cfg.sub)}</span>` : ''}${cfg.note ? `<span class="note">${esc(cfg.note)}</span>` : ''}
     </div></div>`;
   document.body.appendChild(el);
   let swapped = false, done = false;
@@ -1730,7 +1731,13 @@ function roll() {
   const era = pick(ERAS.filter(e => avail.some(t => t.era === e)));
   const target = pick(avail.filter(t => t.era === era));
   d.usedTeams.push(target.id);
-  const finish = () => { d.spinning = false; d.rolled = target.id; stopTimer(); UI.landed = true; render(); };
+  const finish = () => {
+    stopTimer();
+    d.spinning = false; d.rolled = target.id;
+    const best = target.players.slice().sort((a, b) => b.ovr - a.ovr)[0];
+    const city = target.name.slice(0, target.name.length - target.nick.length).trim();
+    playTransition({ kicker: `${target.era} · ${target.season}`, title: target.nick, sub: `${city} · best player ${best.name} (${best.ovr})`, hold: 700 }, render);
+  };
   if (reduced()) { finish(); return; }
   d.spinning = true; d.rolled = null; render();
   let step = 0;
@@ -1758,13 +1765,14 @@ function draftPick(i) {
   d.picks.push({ t: d.rolled, i });
   d.rolled = null;
   UI.sheet = null;
-  if (d.picks.length === 5) {
+  const n = d.picks.length, from = teamShort(TEAMS[p.team]);
+  if (n === 5) {
     S.screen = 'roster';
-    playTransition({ kicker: 'Lineup set', title: 'Your five', sub: `${p.name} completes it · rating ${f1(lineupRating(picksPlayers()))}` }, render);
+    playTransition({ kicker: 'Pick 5 of 5 · Lineup set', title: shortName(p.name), sub: `${p.pos} · ${p.ovr} OVR from the ${from} · team rating ${f1(lineupRating(picksPlayers()))}`, hold: 900 }, render);
     return;
   }
-  UI.popSlot = d.picks.length - 1;
-  toast(`Drafted ${p.name}`);
+  playTransition({ kicker: `Pick ${n} of 5`, title: shortName(p.name), sub: `${p.pos} · ${p.ovr} OVR from the ${from}` }, render,
+    () => { UI.popSlot = n - 1; render(); }); // the slot pops in once the card has cleared
 }
 
 function startSeason() {
@@ -1824,8 +1832,23 @@ function playUserGame(s) {
   const rec = youA ? playSeriesGame(s, eff, 0) : playSeriesGame(s, 0, eff);
   rec.plan = plan.k; rec.eff = eff;
 }
-function playGame() { const s = userSeries(); if (!s) return; playUserGame(s); UI.tab = 'plan'; render(); }
-function simSeries() { const s = userSeries(); if (!s) return; while (!s.done) playUserGame(s); UI.tab = 'games'; render(); }
+function seriesScore(s) { const youA = s.a.team.user; return [youA ? s.wa : s.wb, youA ? s.wb : s.wa]; }
+function playGame() {
+  const s = userSeries(); if (!s) return;
+  playUserGame(s);
+  UI.tab = 'plan';
+  const g = s.games[s.games.length - 1], r = gameLine(s, g), [yw, ow] = seriesScore(s);
+  const state = s.done ? (s.winner.team.user ? `Series won ${yw}–${ow}` : `Series lost ${yw}–${ow}`) : yw === ow ? `Series tied ${yw}–${ow}` : `${yw > ow ? 'You lead' : 'They lead'} ${Math.max(yw, ow)}–${Math.min(yw, ow)}`;
+  playTransition({ kicker: `${ROUND_NAMES[S.po.round]} · Game ${g.n}`, title: r.won ? 'Win' : 'Loss', sub: `${r.score} · ${state}`, note: r.plan ? `Game plan: ${r.plan}` : '', tone: r.won ? '' : 'loss', hold: 900 }, render);
+}
+function simSeries() {
+  const s = userSeries(); if (!s) return;
+  const before = s.games.length;
+  while (!s.done) playUserGame(s);
+  UI.tab = 'games';
+  const [yw, ow] = seriesScore(s), won = s.winner.team.user;
+  playTransition({ kicker: `${ROUND_NAMES[S.po.round]} · simulated ${s.games.length - before} game${s.games.length - before === 1 ? '' : 's'}`, title: won ? 'Series won' : 'Series lost', sub: `${yw}–${ow} vs the ${(s.a.team.user ? s.b : s.a).team.label}`, tone: won ? '' : 'loss', hold: 900 }, render);
+}
 
 function userPlayoffAcc() {
   const acc = {};
