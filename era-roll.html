@@ -203,6 +203,35 @@
   .capline { display: flex; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; margin-top: 10px; font-family: var(--mono); font-size: 12px; color: var(--led-soft); }
   .capline b { color: var(--led); font-weight: 600; }
 
+  /* game transitions: a two-layer slab wipes across with a title card */
+  .wipe { position: fixed; inset: 0; z-index: 60; overflow: hidden; cursor: pointer; }
+  .wipe .slab { position: absolute; top: -20%; bottom: -20%; left: -70%; right: -70%; transform: translateX(125%) skewX(-14deg); animation: wipeIn .42s cubic-bezier(.75, 0, .25, 1) forwards; }
+  .wipe .slab.dark { background: var(--board); box-shadow: inset 8px 0 0 var(--led); }
+  .wipe .slab.lit {
+    animation-delay: .07s; display: grid; place-items: center; color: var(--night);
+    background: repeating-linear-gradient(90deg, transparent 0 46px, rgba(0, 0, 0, .07) 46px 49px), var(--led);
+  }
+  .wipe.loss .slab.dark { box-shadow: inset 8px 0 0 var(--loss); }
+  .wipe.loss .slab.lit { background: repeating-linear-gradient(90deg, transparent 0 46px, rgba(0, 0, 0, .07) 46px 49px), var(--loss); }
+  .wipe-in { transform: skewX(14deg); text-align: center; display: grid; gap: 8px; padding: 0 28px; max-width: 100vw; opacity: 0; animation: wipeText .45s cubic-bezier(.2, .8, .2, 1) .32s forwards; }
+  .wipe-in .kicker { font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: .32em; text-transform: uppercase; }
+  .wipe-in b { font-family: var(--display); font-weight: 900; font-size: clamp(48px, 16vw, 148px); line-height: .85; text-transform: uppercase; white-space: nowrap; }
+  .wipe-in b.long { font-size: clamp(40px, 12.5vw, 120px); }
+  .wipe-in .sub { font-weight: 700; font-size: 15px; }
+  .wipe-in .tap { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; opacity: .55; margin-top: 10px; }
+  .wipe.out .slab { animation: wipeOut .4s cubic-bezier(.75, 0, .25, 1) forwards; }
+  .wipe.out .slab.dark { animation-delay: .07s; }
+  @keyframes wipeIn { from { transform: translateX(125%) skewX(-14deg); } to { transform: translateX(0) skewX(-14deg); } }
+  @keyframes wipeOut { from { transform: translateX(0) skewX(-14deg); } to { transform: translateX(-135%) skewX(-14deg); } }
+  @keyframes wipeText { from { opacity: 0; transform: skewX(14deg) translateX(48px) scale(.94); } to { opacity: 1; transform: skewX(14deg); } }
+  .s5.pop .ring { animation: slotPop .5s cubic-bezier(.3, 1.6, .5, 1); }
+  @keyframes slotPop { 0% { transform: scale(.2); } 100% { transform: scale(1); } }
+  .board.land { animation: boardLand .55s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes boardLand {
+    0% { transform: scale(1.035); box-shadow: inset 0 0 0 1px var(--reel-line), 0 0 0 2px var(--led), 0 0 44px color-mix(in srgb, var(--led) 45%, transparent); }
+    100% { transform: none; box-shadow: inset 0 0 0 1px var(--reel-line), 0 0 0 0 transparent; }
+  }
+
   /* pre-roll pick card and budget */
   .pickhero {
     display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center;
@@ -1091,7 +1120,7 @@ function finishSeries(s) { while (!s.done) playSeriesGame(s); }
 
 /* ======================= STATE ======================= */
 let S = { screen: 'home' };
-const UI = { sheet: null, tab: 'plan', homeEra: '1990s', toast: '', toastId: 0, lastScreen: null };
+const UI = { sheet: null, tab: 'plan', homeEra: '1990s', toast: '', toastId: 0, lastScreen: null, popSlot: null, landed: false };
 const reduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1172,7 +1201,7 @@ function lineupStrip(players) {
   const slots = [0, 1, 2, 3, 4].map(i => {
     const p = players[i];
     return p
-      ? `<span class="s5" style="--era:${ERA_INFO[p.era].color}"><span class="ring">${p.ovr}</span><small>${esc(shortName(p.name))}</small></span>`
+      ? `<span class="s5 ${UI.popSlot === i ? 'pop' : ''}" style="--era:${ERA_INFO[p.era].color}"><span class="ring">${p.ovr}</span><small>${esc(shortName(p.name))}</small></span>`
       : i === players.length
         ? `<span class="s5 open current" aria-current="step"><span class="ring">${i + 1}</span><small>${S.draft && S.draft.rolled != null ? 'Picking' : 'Up next'}</small></span>`
         : `<span class="s5 open"><span class="ring">${i + 1}</span><small>Open</small></span>`;
@@ -1309,7 +1338,7 @@ function viewDraft() {
     const eraTxt = d.spinning ? '····' : t.era;
     const seasonTxt = d.spinning ? '····' : t.season;
     const teamTxt = d.spinning ? 'Rolling…' : t.name;
-    stage = `<div class="board">
+    stage = `<div class="board ${UI.landed ? 'land' : ''}">
       <div class="reels">
         <div class="reel ${d.spinning ? 'spin' : ''}"><div class="k">ERA</div><div class="v" id="reelEra">${eraTxt}</div></div>
         <div class="reel ${d.spinning ? 'spin' : ''}"><div class="k">SEASON</div><div class="v" id="reelSeason">${seasonTxt}</div></div>
@@ -1608,6 +1637,7 @@ function render() {
   $('#app').innerHTML = VIEWS[S.screen]() + sheetView() + (UI.toast ? `<div class="toast" role="status">${esc(UI.toast)}</div>` : '');
   setLock(!!UI.sheet);
   applyTheme();
+  UI.popSlot = null; UI.landed = false; // one-shot animations play on a single render
   if (changed) {
     window.scrollTo(0, 0);
     const m = $('#main');
@@ -1623,6 +1653,31 @@ function toast(msg) {
 function openSheet(sh) { UI.sheet = sh; render(); }
 function closeSheet() { UI.sheet = null; render(); }
 
+/* ======================= TRANSITIONS ======================= */
+// Full-screen wipe: slab covers the screen, the new screen renders underneath, the title holds, then the slab exits.
+// Tap anywhere to skip the hold. Skipped entirely when the viewer prefers reduced motion.
+function playTransition(cfg, swap, after) {
+  if (reduced()) { swap(); if (after) after(); return; }
+  const el = document.createElement('div');
+  el.className = 'wipe' + (cfg.tone === 'loss' ? ' loss' : '');
+  el.setAttribute('role', 'status');
+  el.innerHTML = `<div class="slab dark"></div><div class="slab lit"><div class="wipe-in">
+    ${cfg.kicker ? `<span class="kicker">${esc(cfg.kicker)}</span>` : ''}<b class="${cfg.title.length > 10 ? 'long' : ''}">${esc(cfg.title)}</b>${cfg.sub ? `<span class="sub">${esc(cfg.sub)}</span>` : ''}
+    <span class="tap">Tap to continue</span></div></div>`;
+  document.body.appendChild(el);
+  let swapped = false, done = false;
+  const doSwap = () => { if (!swapped) { swapped = true; swap(); } };
+  const finish = () => {
+    if (done) return;
+    done = true; doSwap();
+    el.classList.add('out');
+    setTimeout(() => { el.remove(); if (after) after(); }, 480);
+  };
+  setTimeout(doSwap, 500);
+  const hold = setTimeout(finish, 500 + (cfg.hold || 750));
+  el.addEventListener('click', e => { e.stopPropagation(); if (!swapped) return; clearTimeout(hold); finish(); });
+}
+
 /* ======================= ACTIONS ======================= */
 let timer = null;
 function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
@@ -1633,7 +1688,8 @@ function startDraft() {
   stopTimer();
   UI.sheet = null;
   S = { screen: 'draft', diffKey: DIFF_KEY, minDiff: DIFF_KEYS.indexOf(DIFF_KEY), draft: { picks: [], rolled: null, rerolls: DIFFS[DIFF_KEY].rerolls, usedTeams: [], spinning: false } };
-  render();
+  const D = DIFFS[DIFF_KEY];
+  playTransition({ kicker: D.label, title: 'Draft day', sub: `Five rolls · ${D.rerolls} reroll${D.rerolls === 1 ? '' : 's'}${D.cap ? ` · ${D.cap} OVR cap` : ''}` }, render);
 }
 
 function roll() {
@@ -1643,7 +1699,7 @@ function roll() {
   const era = pick(ERAS.filter(e => avail.some(t => t.era === e)));
   const target = pick(avail.filter(t => t.era === era));
   d.usedTeams.push(target.id);
-  const finish = () => { d.spinning = false; d.rolled = target.id; stopTimer(); render(); };
+  const finish = () => { d.spinning = false; d.rolled = target.id; stopTimer(); UI.landed = true; render(); };
   if (reduced()) { finish(); return; }
   d.spinning = true; d.rolled = null; render();
   let step = 0;
@@ -1671,7 +1727,12 @@ function draftPick(i) {
   d.picks.push({ t: d.rolled, i });
   d.rolled = null;
   UI.sheet = null;
-  if (d.picks.length === 5) S.screen = 'roster';
+  if (d.picks.length === 5) {
+    S.screen = 'roster';
+    playTransition({ kicker: 'Lineup set', title: 'Your five', sub: `${p.name} completes it · rating ${f1(lineupRating(picksPlayers()))}` }, render);
+    return;
+  }
+  UI.popSlot = d.picks.length - 1;
   toast(`Drafted ${p.name}`);
 }
 
@@ -1684,8 +1745,7 @@ function startSeason() {
   S.legends = legendsFrom(S.league);
   S.field = seedField(S.user, res.w, S.legends, S.league);
   S.screen = 'season';
-  render();
-  animateSeason();
+  playTransition({ kicker: 'Regular season', title: 'Tip-off', sub: `82 games · projected ${Math.round(expectedWins(S.user, S.league))} wins` }, render, animateSeason);
 }
 
 function animateSeason() {
@@ -1719,7 +1779,8 @@ function startPlayoffs() {
   S.po = { round: 0, rounds: [r0], plan: null, norm: traitNorm(S.field.filter(e => !e.team.user).map(e => e.team)) };
   UI.tab = 'plan';
   S.screen = 'playoffs';
-  render();
+  const s = userSeries(), you = s.a.team.user ? s.a : s.b, opp = s.a.team.user ? s.b : s.a;
+  playTransition({ kicker: 'The gauntlet', title: 'Playoffs', sub: `Seed #${you.seed} · Round of 16 vs ${opp.team.label}` }, render);
 }
 
 function playUserGame(s) {
@@ -1788,14 +1849,18 @@ function advance() {
   P.plan = null;
   UI.tab = 'plan';
   UI.lastScreen = null; // replay the screen transition for the new round
-  render();
+  const s = userSeries(), opp = s.a.team.user ? s.b : s.a;
+  playTransition({ kicker: `Won ${us.a.team.user ? us.wa : us.wb}–${us.a.team.user ? us.wb : us.wa}`, title: P.round === 3 ? 'The Finals' : ROUND_NAMES[P.round], sub: `vs ${opp.team.label} · seed ${opp.seed}` }, render);
 }
 function finalizeRun(level) {
   const five = S.user.starters.map(p => shortName(p.name)).join(', ');
   const idx = S.minDiff ?? DIFF_KEYS.indexOf(S.diffKey);
   saveBest({ level, finish: S.end.finish, w: S.season.w, l: S.season.l, five, diff: DIFFS[DIFF_KEYS[idx]].label, diffIdx: idx });
   S.screen = 'end';
-  render();
+  const E = S.end;
+  playTransition(E.champion
+    ? { kicker: 'Your Five', title: 'Champions', sub: `Finals MVP: ${E.fmvp}`, hold: 1300 }
+    : { kicker: 'Season over', title: 'Eliminated', sub: `${E.finish} · lost ${E.score.split('–').reverse().join('–')} to the ${E.by}`, tone: 'loss', hold: 1000 }, render);
 }
 
 function applyDiff(k) {
