@@ -28,8 +28,10 @@
     --maple-3: #C98F55;
     --floor-ink: #22150A;
     --court-line: rgba(255, 250, 240, 0.62);
-    --led:     #FFB627;
+    --led:     #FFB627;   /* accent: follows difficulty (see [data-diff] below) */
     --led-soft:#A47A1D;
+    --reel-bg: #12100A;
+    --reel-line: #2B2410;
     --board:   #090B0F;
     --win:     #45C482;
     --loss:    #E65B50;
@@ -45,6 +47,14 @@
     --bar-h: 56px;
     color-scheme: dark;
   }
+
+  /* Difficulty themes: Rookie sky blue, Pro arena amber, Hall of Fame violet. */
+  @property --led { syntax: '<color>'; inherits: true; initial-value: #FFB627; }
+  @property --led-soft { syntax: '<color>'; inherits: true; initial-value: #A47A1D; }
+  :root { transition: --led .35s ease, --led-soft .35s ease; }
+  :root[data-diff="rookie"] { --led: #5CC8FF; --led-soft: #3B87AE; --reel-bg: #091117; --reel-line: #173244; }
+  :root[data-diff="pro"]    { --led: #FFB627; --led-soft: #A47A1D; --reel-bg: #12100A; --reel-line: #2B2410; }
+  :root[data-diff="hof"]    { --led: #C38BFF; --led-soft: #8459B3; --reel-bg: #100C17; --reel-line: #2D2040; }
 
   * { box-sizing: border-box; }
   html, body { background: var(--night); color: var(--chalk); }
@@ -90,7 +100,7 @@
     border: 1.5px solid var(--led); color: var(--led); background: transparent; border-radius: 999px;
     min-height: 34px; padding: 0 12px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
   }
-  .chip-btn:active { background: rgba(255, 182, 39, .14); }
+  .chip-btn:active { background: color-mix(in srgb, var(--led) 14%, transparent); }
   .stagebar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; height: 3px; max-width: 760px; margin: 0 auto; }
   .stagebar i { background: var(--line); }
   .stagebar i.on { background: var(--led); }
@@ -113,7 +123,7 @@
     background: var(--panel-2); color: var(--chalk); box-shadow: inset 0 0 0 1.5px var(--line);
     transition: transform .1s ease;
   }
-  .abtn.primary { flex: 1.7; background: var(--led); color: var(--night); box-shadow: 0 8px 24px rgba(255, 182, 39, .22); }
+  .abtn.primary { flex: 1.7; background: var(--led); color: var(--night); box-shadow: 0 8px 24px color-mix(in srgb, var(--led) 22%, transparent); }
   .abtn.danger { background: var(--loss); color: var(--night); box-shadow: none; }
   .abtn.block { width: 100%; }
   .abtn:active:not(:disabled) { transform: scale(.97); }
@@ -124,7 +134,7 @@
   .ovr {
     width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 12px;
     background: var(--board); color: var(--led); font-family: var(--display); font-weight: 900; font-size: 24px; line-height: 1;
-    text-shadow: 0 0 10px rgba(255, 182, 39, .4); box-shadow: inset 0 -3px 0 var(--era, transparent);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--led) 40%, transparent); box-shadow: inset 0 -3px 0 var(--era, transparent);
   }
   .ovr.sm { font-size: 17px; }
   .ovr.big { width: 64px; height: 64px; font-size: 34px; border-radius: 16px; }
@@ -182,12 +192,12 @@
   .capbar .bar i { display: block; height: 100%; background: var(--e00); border-radius: 99px; }
 
   /* ---------- LED board ---------- */
-  .board { background: var(--board); border-radius: 18px; padding: 12px; color: var(--led); box-shadow: inset 0 0 0 1px #2B2410; }
+  .board { background: var(--board); border-radius: 18px; padding: 12px; color: var(--led); box-shadow: inset 0 0 0 1px var(--reel-line); }
   .reels { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .reel { background: #12100A; border-radius: 10px; padding: 8px 10px; min-width: 0; box-shadow: inset 0 0 0 1px #2B2410; }
+  .reel { background: var(--reel-bg); border-radius: 10px; padding: 8px 10px; min-width: 0; box-shadow: inset 0 0 0 1px var(--reel-line); }
   .reel.wide { grid-column: 1 / -1; }
   .reel .k { font-family: var(--display); font-weight: 700; font-size: 11px; letter-spacing: .2em; color: var(--led-soft); }
-  .reel .v { font-family: var(--display); font-weight: 800; font-size: 26px; line-height: 1.05; text-transform: uppercase; text-shadow: 0 0 12px rgba(255, 182, 39, .45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .reel .v { font-family: var(--display); font-weight: 800; font-size: 26px; line-height: 1.05; text-transform: uppercase; text-shadow: 0 0 12px color-mix(in srgb, var(--led) 45%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .reel.spin .v { animation: flick .08s steps(2) infinite; }
   @keyframes flick { 50% { opacity: .55; } }
   .capline { display: flex; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; margin-top: 10px; font-family: var(--mono); font-size: 12px; color: var(--led-soft); }
@@ -264,7 +274,7 @@
   .floor .board { box-shadow: 0 0 0 4px var(--floor-ink), 0 18px 40px rgba(0, 0, 0, .35); }
   .home-body { padding-top: 20px; }
   .seg3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; background: var(--board); border-radius: 12px; padding: 4px; }
-  .seg3 button { border: 0; background: transparent; min-height: 44px; border-radius: 9px; font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  .seg3 button { border: 0; background: transparent; min-height: 44px; padding: 0 4px; border-radius: 9px; font-family: var(--display); font-weight: 800; font-size: 16px; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; color: var(--muted); }
   .seg3 button[aria-pressed="true"] { background: var(--led); color: var(--night); }
   .rules { font-size: 13px; color: var(--muted); margin-top: 10px; }
   .carousel { display: grid; grid-auto-flow: column; grid-auto-columns: 78%; gap: 10px; overflow-x: scroll; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 2px; }
@@ -281,9 +291,9 @@
   .best b { font-family: var(--display); font-weight: 800; font-size: 24px; text-transform: uppercase; color: var(--led); display: block; line-height: 1.05; }
 
   /* ---------- season ---------- */
-  .scoreboard { background: var(--board); border-radius: 18px; padding: 14px 16px; color: var(--led); display: grid; grid-template-columns: 1fr 1fr 1.1fr; gap: 10px; align-items: end; box-shadow: inset 0 0 0 1px #2B2410; }
+  .scoreboard { background: var(--board); border-radius: 18px; padding: 14px 16px; color: var(--led); display: grid; grid-template-columns: 1fr 1fr 1.1fr; gap: 10px; align-items: end; box-shadow: inset 0 0 0 1px var(--reel-line); }
   .scoreboard .k { font-family: var(--display); font-weight: 700; font-size: 11px; letter-spacing: .2em; color: var(--led-soft); }
-  .scoreboard .v { font-family: var(--display); font-weight: 900; font-size: clamp(48px, 15vw, 72px); line-height: .9; text-shadow: 0 0 16px rgba(255, 182, 39, .45); font-variant-numeric: tabular-nums; }
+  .scoreboard .v { font-family: var(--display); font-weight: 900; font-size: clamp(48px, 15vw, 72px); line-height: .9; text-shadow: 0 0 16px color-mix(in srgb, var(--led) 45%, transparent); font-variant-numeric: tabular-nums; }
   .scoreboard .v.sm { font-size: clamp(22px, 6vw, 30px); line-height: 1.05; }
   .strip { display: grid; grid-template-columns: repeat(21, minmax(0, 1fr)); gap: 3px; }
   .strip i { aspect-ratio: 1; border-radius: 2px; background: var(--panel-2); max-width: 100%; }
@@ -294,7 +304,7 @@
   .lastgame .L { color: var(--loss); font-weight: 600; }
   .hero-num { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--board); color: var(--led); }
   .hero-num .k { display: block; font-family: var(--display); font-weight: 700; font-size: 11px; letter-spacing: .2em; color: var(--led-soft); }
-  .hero-num .big { display: block; font-family: var(--display); font-weight: 900; font-size: 54px; line-height: .95; text-shadow: 0 0 16px rgba(255, 182, 39, .45); }
+  .hero-num .big { display: block; font-family: var(--display); font-weight: 900; font-size: 54px; line-height: .95; text-shadow: 0 0 16px color-mix(in srgb, var(--led) 45%, transparent); }
   .facts { display: grid; gap: 10px; }
   .fact { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; border-bottom: 1px solid var(--line); padding-bottom: 9px; }
   .fact:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -322,7 +332,7 @@
   .vs .side.r { text-align: right; }
   .vs .tn { font-family: var(--display); font-weight: 800; font-size: 19px; text-transform: uppercase; line-height: 1.05; }
   .vs .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .vs .sc { font-family: var(--display); font-weight: 900; font-size: 54px; color: var(--led); line-height: .9; text-shadow: 0 0 16px rgba(255, 182, 39, .45); font-variant-numeric: tabular-nums; }
+  .vs .sc { font-family: var(--display); font-weight: 900; font-size: 54px; color: var(--led); line-height: .9; text-shadow: 0 0 16px color-mix(in srgb, var(--led) 45%, transparent); font-variant-numeric: tabular-nums; }
   .tabs {
     position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--bar-h) + 6px); z-index: 10;
     display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 12px;
@@ -1225,7 +1235,7 @@ function viewDraft() {
   const t = d.rolled != null ? TEAMS[d.rolled] : null;
   const eraTxt = d.spinning ? '····' : t ? t.era : '—';
   const seasonTxt = d.spinning ? '····' : t ? t.season : '—';
-  const teamTxt = d.spinning ? 'Rolling…' : t ? t.name : 'Press roll';
+  const teamTxt = d.spinning ? 'Rolling…' : t ? t.name : `Roll for pick ${n + 1}`;
   const capline = D.cap
     ? `<div class="capline"><b>CAP ${capUsed()} / ${D.cap} OVR</b><span>MAX THIS PICK ${maxPickOvr(D, d.picks)} · OVR IS SALARY</span></div>`
     : `<div class="capline"><b>NO SALARY CAP</b><span>${esc(D.label.toUpperCase())}</span></div>`;
@@ -1236,7 +1246,7 @@ function viewDraft() {
         <button class="link-btn" data-action="reroll" id="reroll-btn" ${d.rerolls > 0 ? '' : 'disabled'}>↻ Reroll · ${d.rerolls}</button></div>
       <div class="list">${ps.map(p => playerRow(p, { action: 'sheet-player', why: pickBlock(p) })).join('')}</div></section>`;
   } else {
-    body = `<div class="empty">${d.spinning ? 'Rolling…' : n === 0 ? 'Press Roll to land on your first team.' : 'Press Roll for the next team.'}</div>`;
+    body = ''; // the board and the Roll button already say what to do; no separate empty-state box
   }
   const canRoll = !d.spinning && !t;
   const canReroll = !d.spinning && !!t && d.rerolls > 0;
@@ -1520,11 +1530,19 @@ function setLock(on) {
     lockY = null;
   }
 }
+const THEME_BAR = { rookie: '#091117', pro: '#0C1016', hof: '#100C17' };
+function applyTheme() {
+  const k = (S && S.diffKey) || DIFF_KEY;
+  document.documentElement.dataset.diff = k;
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute('content', THEME_BAR[k]);
+}
 function render() {
   const changed = UI.lastScreen !== S.screen;
   UI.lastScreen = S.screen;
   $('#app').innerHTML = VIEWS[S.screen]() + sheetView() + (UI.toast ? `<div class="toast" role="status">${esc(UI.toast)}</div>` : '');
   setLock(!!UI.sheet);
+  applyTheme();
   if (changed) {
     window.scrollTo(0, 0);
     const m = $('#main');
