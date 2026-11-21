@@ -145,6 +145,13 @@
   .pmain b { display: block; font-size: 16px; font-weight: 700; line-height: 1.2; }
   .pmeta { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
   .chev { color: var(--faint); font-size: 24px; line-height: 1; }
+  .link-btn {
+    flex: none; align-self: center; min-height: 36px; padding: 0 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+    font-family: var(--body); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none;
+  }
+  .link-btn:active:not(:disabled) { background: var(--panel-2); }
+  .link-btn:disabled { opacity: .45; }
 
   .need { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; background: var(--panel); font-size: 13px; font-weight: 600; white-space: nowrap; }
   .need i { width: 8px; height: 8px; border-radius: 50%; background: var(--win); }
@@ -1224,7 +1231,8 @@ function viewDraft() {
   let body;
   if (t && !d.spinning) {
     const ps = t.players.slice().sort((a, b) => b.ovr - a.ovr);
-    body = `<section><div class="sec">${esc(teamLabel(t))}<span class="sec-sub">Tap a player</span></div>
+    body = `<section><div class="sec"><span>${esc(teamLabel(t))}<span class="sec-sub" style="display:block;margin-top:2px">Tap a player to see his card</span></span>
+        <button class="link-btn" data-action="reroll" id="reroll-btn" ${d.rerolls > 0 ? '' : 'disabled'}>↻ Reroll · ${d.rerolls}</button></div>
       <div class="list">${ps.map(p => playerRow(p, { action: 'sheet-player', why: pickBlock(p) })).join('')}</div></section>`;
   } else {
     body = `<div class="empty">${d.spinning ? 'Rolling…' : n === 0 ? 'Press Roll to land on your first team.' : 'Press Roll for the next team.'}</div>`;
@@ -1244,12 +1252,8 @@ function viewDraft() {
     </div>
     ${body}`) + actionbar(
     // While choosing from a rolled roster the rows are the action, so the bar only offers a reroll (or nothing).
-    t && !d.spinning
-      ? (canReroll ? [{ label: `Reroll this team · ${d.rerolls} left`, action: 'reroll', id: 'reroll-btn' }] : [])
-      : [
-          { label: `Reroll · ${d.rerolls}`, action: 'reroll', id: 'reroll-btn', disabled: true },
-          { label: d.spinning ? 'Rolling…' : 'Roll', action: 'roll', id: 'roll-btn', primary: true, disabled: !canRoll },
-        ]);
+    // While choosing, the player rows are the action; reroll is a small side control in the roster header.
+    t && !d.spinning ? [] : [{ label: d.spinning ? 'Rolling…' : 'Roll', action: 'roll', id: 'roll-btn', primary: true, disabled: !canRoll }]);
 }
 
 function viewRoster() {
