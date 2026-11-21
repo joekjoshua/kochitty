@@ -224,7 +224,41 @@
   @keyframes wipeIn { from { transform: translateX(125%) skewX(-14deg); } to { transform: translateX(0) skewX(-14deg); } }
   @keyframes wipeOut { from { transform: translateX(0) skewX(-14deg); } to { transform: translateX(-135%) skewX(-14deg); } }
   @keyframes wipeText { from { opacity: 0; transform: skewX(14deg) translateX(48px) scale(.94); } to { opacity: 1; transform: skewX(14deg); } }
-  .s5.pop .ring { animation: slotPop .5s cubic-bezier(.3, 1.6, .5, 1); }
+  .s5.pop .ring { animation: slotPop .5s cubic-bezier(.3, 1.6, .5, 1), slotBurst .7s ease-out; }
+  @keyframes slotBurst {
+    0% { box-shadow: 0 0 0 2px var(--era), 0 0 0 0 color-mix(in srgb, var(--led) 75%, transparent); }
+    100% { box-shadow: 0 0 0 2px var(--era), 0 0 0 18px color-mix(in srgb, var(--led) 0%, transparent); }
+  }
+  .s5.incoming { visibility: hidden; }
+  .flyer {
+    position: fixed; z-index: 70; pointer-events: none; display: grid; place-items: center; transform-origin: center;
+    background: var(--board); color: var(--led); font-family: var(--display); font-weight: 900; font-size: 34px; line-height: 1;
+    box-shadow: 0 0 0 2px var(--era), 0 14px 34px rgba(0, 0, 0, .55), 0 0 30px color-mix(in srgb, var(--led) 35%, transparent);
+    text-shadow: 0 0 12px color-mix(in srgb, var(--led) 50%, transparent);
+  }
+  .reel .v { transform-origin: left center; }
+  .reel.lock { animation: reelFlash .7s ease-out; }
+  .reel.lock .v { animation: stamp .45s cubic-bezier(.3, 1.5, .5, 1); }
+  @keyframes stamp { 0% { transform: scale(1.6); opacity: 0; filter: blur(3px); } 55% { opacity: 1; filter: none; } 100% { transform: none; } }
+  @keyframes reelFlash {
+    0% { box-shadow: inset 0 0 0 1px var(--reel-line), 0 0 0 2px var(--led), 0 0 28px color-mix(in srgb, var(--led) 55%, transparent); }
+    100% { box-shadow: inset 0 0 0 1px var(--reel-line), 0 0 0 0 transparent; }
+  }
+  .cascade > * { animation: rowIn .4s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms + 260ms); }
+  @keyframes rowIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  .pickhero .big-ring.done { animation: none; font-size: 56px; }
+  .vs.hit-w { animation: hitW .8s ease-out; }
+  .vs.hit-l { animation: hitL .8s ease-out; }
+  @keyframes hitW { 0% { box-shadow: 0 0 0 2px var(--led), 0 0 44px color-mix(in srgb, var(--led) 50%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+  @keyframes hitL {
+    0% { box-shadow: 0 0 0 2px var(--loss), 0 0 44px color-mix(in srgb, var(--loss) 45%, transparent); transform: translateX(-6px); }
+    12% { transform: translateX(6px); } 24% { transform: translateX(-4px); } 36% { transform: translateX(2px); } 48% { transform: none; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .vs .sc.flip { animation: flip .55s cubic-bezier(.3, 1.4, .5, 1) .1s both; }
+  @keyframes flip { 0% { transform: perspective(300px) rotateX(90deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+  .lastres.stamp { animation: stampIn .45s cubic-bezier(.3, 1.5, .5, 1) .25s both; }
+  @keyframes stampIn { 0% { transform: scale(1.18); opacity: 0; } 100% { transform: none; opacity: 1; } }
   @keyframes slotPop { 0% { transform: scale(.2); } 100% { transform: scale(1); } }
   .board.land { animation: boardLand .55s cubic-bezier(.2, .8, .2, 1); }
   @keyframes boardLand {
@@ -1141,7 +1175,7 @@ function finishSeries(s) { while (!s.done) playSeriesGame(s); }
 
 /* ======================= STATE ======================= */
 let S = { screen: 'home' };
-const UI = { dockCompact: false, sheet: null, tab: 'plan', homeEra: '1990s', toast: '', toastId: 0, lastScreen: null, popSlot: null, landed: false };
+const UI = { dockCompact: false, incoming: null, gameAnim: null, sheet: null, tab: 'plan', homeEra: '1990s', toast: '', toastId: 0, lastScreen: null, popSlot: null, landed: false };
 const reduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1200,9 +1234,9 @@ function tagsHtml(p, max = 6) {
   const t = playerTags(p).slice(0, max);
   return t.length ? `<span class="tags">${t.map(x => `<span class="tag">${x}</span>`).join('')}</span>` : '';
 }
-function playerRow(p, { action, why, origin } = {}) {
+function playerRow(p, { action, why, origin, i } = {}) {
   const tag = action ? 'button' : 'div';
-  return `<${tag} class="prow ${why ? 'off' : ''}" ${action ? `data-action="${action}" data-i="${p.idx}"` : ''} style="--era:${ERA_INFO[p.era].color}">
+  return `<${tag} class="prow ${why ? 'off' : ''}" ${action ? `data-action="${action}" data-i="${p.idx}"` : ''} style="--era:${ERA_INFO[p.era].color};--i:${i || 0}">
     <span class="ovr">${p.ovr}</span>
     <span class="pmain"><b>${esc(p.name)}</b><span class="pmeta">${keyLine(p, origin)}</span>${tagsHtml(p, 3)}${why ? `<span class="why">${esc(why)}</span>` : ''}</span>
     ${action ? '<span class="chev" aria-hidden="true">›</span>' : '<span></span>'}
@@ -1222,7 +1256,7 @@ function lineupStrip(players) {
   const slots = [0, 1, 2, 3, 4].map(i => {
     const p = players[i];
     return p
-      ? `<span class="s5 ${UI.popSlot === i ? 'pop' : ''}" style="--era:${ERA_INFO[p.era].color}"><span class="ring">${p.ovr}</span><small>${esc(shortName(p.name))}</small></span>`
+      ? `<span class="s5 ${UI.popSlot === i ? 'pop' : ''} ${UI.incoming === i ? 'incoming' : ''}" data-slot="${i}" style="--era:${ERA_INFO[p.era].color}"><span class="ring">${p.ovr}</span><small>${esc(shortName(p.name))}</small></span>`
       : i === players.length
         ? `<span class="s5 open current" aria-current="step"><span class="ring">${i + 1}</span><small>${S.draft && S.draft.rolled != null ? 'Picking' : 'Up next'}</small></span>`
         : `<span class="s5 open"><span class="ring">${i + 1}</span><small>Open</small></span>`;
@@ -1346,7 +1380,10 @@ function viewDraft() {
   const n = players.length;
   const t = d.rolled != null ? TEAMS[d.rolled] : null;
   let stage;
-  if (!t && !d.spinning) {
+  if (n === 5) {
+    stage = `<section class="pickhero"><div class="big-ring done" aria-hidden="true">✓</div>
+      <div><span class="k">DRAFT COMPLETE</span><b>Lineup set</b><span class="d">Heading to the season.</span></div></section>`;
+  } else if (!t && !d.spinning) {
     // Before the roll: the pick itself is the subject, and the budget is first-class information.
     stage = `<section class="pickhero">
         <div class="big-ring" aria-hidden="true">${n + 1}</div>
@@ -1363,7 +1400,7 @@ function viewDraft() {
       <div class="reels">
         <div class="reel ${d.spinning ? 'spin' : ''}"><div class="k">ERA</div><div class="v" id="reelEra">${eraTxt}</div></div>
         <div class="reel ${d.spinning ? 'spin' : ''}"><div class="k">SEASON</div><div class="v" id="reelSeason">${seasonTxt}</div></div>
-        <div class="reel wide ${d.spinning ? 'spin' : ''}"><div class="k">TEAM</div><div class="v" id="reelTeam">${esc(teamTxt)}</div></div>
+        <div class="reel wide ${d.spinning ? 'spin' : ''} ${UI.landed ? 'lock' : ''}"><div class="k">TEAM</div><div class="v" id="reelTeam">${esc(teamTxt)}</div></div>
       </div>
     </div>`;
     if (t && !d.spinning) {
@@ -1371,14 +1408,14 @@ function viewDraft() {
       stage += `<section><div class="sec"><span>Roster<span class="sec-sub" style="display:block;margin-top:2px">Tap a player to see his card</span></span>
           <button class="link-btn" data-action="reroll" id="reroll-btn" ${d.rerolls > 0 ? '' : 'disabled'}>↻ Reroll · ${d.rerolls}</button></div>
         ${budgetLine()}
-        <div class="list">${ps.map(p => playerRow(p, { action: 'sheet-player', why: pickBlock(p) })).join('')}</div></section>`;
+        <div class="list ${UI.landed ? 'cascade' : ''}">${ps.map((p, k) => playerRow(p, { action: 'sheet-player', why: pickBlock(p), i: k })).join('')}</div></section>`;
     }
   }
-  return appbar(`Pick ${n + 1} of 5`, 'Draft', 0) + page(`
+  return appbar(n === 5 ? 'Draft complete' : `Pick ${n + 1} of 5`, 'Draft', 0) + page(`
     <div class="dock ${UI.dockCompact ? 'compact' : ''}" id="dock">${lineupStrip(players)}${needsRow(players)}</div>
     ${stage}`) + actionbar(
     // While choosing, the player rows are the action; reroll is a small side control in the roster header.
-    t && !d.spinning ? [] : [{ label: d.spinning ? 'Rolling…' : 'Roll', action: 'roll', id: 'roll-btn', primary: true, disabled: d.spinning }]);
+    (t && !d.spinning) || n === 5 ? [] : [{ label: d.spinning ? 'Rolling…' : 'Roll', action: 'roll', id: 'roll-btn', primary: true, disabled: d.spinning }]);
 }
 
 function viewRoster() {
@@ -1525,7 +1562,7 @@ function viewPlayoffs() {
   let body = '';
   if (UI.tab === 'plan') {
     const lr = last ? gameLine(s, last) : null;
-    const banner = lr ? `<div class="lastres"><span class="res ${lr.won ? 'W' : 'L'}">${lr.won ? 'W' : 'L'}</span><span class="d">Game ${last.n}: <b>${lr.score}</b> ${lr.where}${lr.plan ? ` · ${esc(lr.plan)}` : ''}<br>${esc(lr.top)}</span></div>` : '';
+    const banner = lr ? `<div class="lastres ${UI.gameAnim ? 'stamp' : ''}"><span class="res ${lr.won ? 'W' : 'L'}">${lr.won ? 'W' : 'L'}</span><span class="d">Game ${last.n}: <b>${lr.score}</b> ${lr.where}${lr.plan ? ` · ${esc(lr.plan)}` : ''}<br>${esc(lr.top)}</span></div>` : '';
     body = s.done
       ? `${banner}<div class="card"><div class="sec">${s.winner.team.user ? 'Series won' : 'Series lost'}</div><p class="muted">${s.winner.team.user ? `Your Five beat the ${esc(opp.team.label)} ${yw}–${ow}.` : `The ${esc(opp.team.label)} beat Your Five ${ow}–${yw}.`}</p></div>`
       : `${banner}<div class="sec">Game ${s.games.length + 1} plan</div>${plansView(s, you.team)}`;
@@ -1541,9 +1578,9 @@ function viewPlayoffs() {
   }
   const next = s.games.length + 1;
   return appbar(ROUND_NAMES[P.round], `vs ${esc(opp.team.label)}`, 2) + page(`
-    <div class="vs">
+    <div class="vs ${UI.gameAnim ? 'hit-' + UI.gameAnim : ''}">
       <div class="side"><div class="tn" style="color:var(--led)">Your Five</div><div class="sub">Seed ${you.seed} · ${f1(you.team.rating)}</div></div>
-      <div class="sc">${yw}–${ow}</div>
+      <div class="sc ${UI.gameAnim ? 'flip' : ''}">${yw}–${ow}</div>
       <div class="side r"><div class="tn">${esc(opp.team.short)}</div><div class="sub">Seed ${opp.seed} · ${f1(opp.team.rating)}</div></div>
     </div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-action="tab" data-tab="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('')}</div>
@@ -1587,7 +1624,7 @@ function sheetPlayer(i) {
   if (guards >= 4) warns.push('Fourth guard: costs size');
   if (bigs >= 4) warns.push('Fourth big: crowds the paint');
   const D = curDiff();
-  return `<div class="sh-head" style="--era:${ERA_INFO[p.era].color}"><span class="ovr big">${p.ovr}</span>
+  return `<div class="sh-head" style="--era:${ERA_INFO[p.era].color}"><span class="ovr big" id="sheet-ovr">${p.ovr}</span>
       <div><h2>${esc(p.name)}</h2><span class="pmeta">${p.pos} · ${esc(teamLabel(t))}</span></div></div>
     ${statGrid(p)}
     ${tagsHtml(p)}
@@ -1667,7 +1704,7 @@ function render() {
   $('#app').innerHTML = VIEWS[S.screen]() + sheetView() + (UI.toast ? `<div class="toast" role="status">${esc(UI.toast)}</div>` : '');
   setLock(!!UI.sheet);
   applyTheme();
-  UI.popSlot = null; UI.landed = false; // one-shot animations play on a single render
+  UI.popSlot = null; UI.landed = false; UI.gameAnim = null; // one-shot animations play on a single render
   if (changed) UI.dockCompact = false;
   updateDock();
   if (changed) {
@@ -1731,28 +1768,25 @@ function roll() {
   const era = pick(ERAS.filter(e => avail.some(t => t.era === e)));
   const target = pick(avail.filter(t => t.era === era));
   d.usedTeams.push(target.id);
-  const finish = () => {
-    stopTimer();
-    d.spinning = false; d.rolled = target.id;
-    const best = target.players.slice().sort((a, b) => b.ovr - a.ovr)[0];
-    const city = target.name.slice(0, target.name.length - target.nick.length).trim();
-    playTransition({ kicker: `${target.era} · ${target.season}`, title: target.nick, sub: `${city} · best player ${best.name} (${best.ovr})`, hold: 700 }, render);
-  };
+  const finish = () => { stopTimer(); d.spinning = false; d.rolled = target.id; UI.landed = true; render(); };
   if (reduced()) { finish(); return; }
   d.spinning = true; d.rolled = null; render();
   let step = 0;
-  const STEPS = 22, ERA_LOCK = 12;
+  const STEPS = 24, ERA_LOCK = 11, SEASON_LOCK = 18;
+  const lock = el => { const r = el.parentElement; r.classList.remove('spin'); r.classList.add('lock'); };
   const tick = () => {
     step++;
     const eEl = $('#reelEra'), sEl = $('#reelSeason'), tEl = $('#reelTeam');
     if (!eEl) return;
-    const lockEra = step >= ERA_LOCK;
-    const shownEra = lockEra ? era : pick(ERAS);
+    const shownEra = step >= ERA_LOCK ? era : pick(ERAS);
     const fake = pick(TEAMS.filter(t => t.era === shownEra));
-    eEl.textContent = shownEra; sEl.textContent = fake.season; tEl.textContent = fake.name;
-    if (lockEra) eEl.parentElement.classList.remove('spin');
+    eEl.textContent = shownEra;
+    sEl.textContent = step >= SEASON_LOCK ? target.season : fake.season;
+    tEl.textContent = fake.name;
+    if (step === ERA_LOCK) lock(eEl);       // era stamps first
+    if (step === SEASON_LOCK) lock(sEl);    // then the season
     if (step < STEPS) timer = setTimeout(tick, 45 + step * step * 0.9);
-    else finish();
+    else finish();                          // the team stamps on the final render
   };
   timer = setTimeout(tick, 40);
 }
@@ -1764,15 +1798,42 @@ function draftPick(i) {
   if (pickBlock(p)) return;
   d.picks.push({ t: d.rolled, i });
   d.rolled = null;
+  const srcEl = document.getElementById('sheet-ovr');
+  const from = srcEl ? srcEl.getBoundingClientRect() : null;
   UI.sheet = null;
-  const n = d.picks.length, from = teamShort(TEAMS[p.team]);
-  if (n === 5) {
-    S.screen = 'roster';
-    playTransition({ kicker: 'Pick 5 of 5 · Lineup set', title: shortName(p.name), sub: `${p.pos} · ${p.ovr} OVR from the ${from} · team rating ${f1(lineupRating(picksPlayers()))}`, hold: 900 }, render);
-    return;
-  }
-  playTransition({ kicker: `Pick ${n} of 5`, title: shortName(p.name), sub: `${p.pos} · ${p.ovr} OVR from the ${from}` }, render,
-    () => { UI.popSlot = n - 1; render(); }); // the slot pops in once the card has cleared
+  const n = d.picks.length;
+  UI.incoming = n - 1;   // the slot is filled but hidden until the badge lands in it
+  render();
+  flyToSlot(from, n - 1, p, () => {
+    UI.incoming = null; UI.popSlot = n - 1; render();
+    // Finishing the draft ends a stage, so that one gets the full stage card.
+    if (n === 5) setTimeout(() => {
+      S.screen = 'roster';
+      playTransition({ kicker: 'Lineup set', title: 'Your five', sub: `${p.name} completes it · team rating ${f1(lineupRating(picksPlayers()))}` }, render);
+    }, 450);
+  });
+}
+
+// Animate a copy of the player's OVR badge from the card he was drafted from into his lineup slot.
+function flyToSlot(from, idx, p, done) {
+  const ring = document.querySelector(`.s5[data-slot="${idx}"] .ring`);
+  if (!from || !ring || reduced() || !document.body.animate) { done(); return; }
+  const to = ring.getBoundingClientRect();
+  const fly = document.createElement('div');
+  fly.className = 'flyer';
+  fly.textContent = p.ovr;
+  fly.style.setProperty('--era', ERA_INFO[p.era].color);
+  Object.assign(fly.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px` });
+  document.body.appendChild(fly);
+  const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+  const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+  const sc = to.width / from.width;
+  const anim = fly.animate([
+    { transform: 'translate(0, 0) scale(1)', borderRadius: '16px' },
+    { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 46}px) scale(1.22)`, borderRadius: '30%', offset: 0.45 },
+    { transform: `translate(${dx}px, ${dy}px) scale(${sc})`, borderRadius: '50%' },
+  ], { duration: 620, easing: 'cubic-bezier(.45, 0, .2, 1)', fill: 'forwards' });
+  anim.onfinish = () => { fly.remove(); done(); };
 }
 
 function startSeason() {
@@ -1838,8 +1899,9 @@ function playGame() {
   playUserGame(s);
   UI.tab = 'plan';
   const g = s.games[s.games.length - 1], r = gameLine(s, g), [yw, ow] = seriesScore(s);
-  const state = s.done ? (s.winner.team.user ? `Series won ${yw}–${ow}` : `Series lost ${yw}–${ow}`) : yw === ow ? `Series tied ${yw}–${ow}` : `${yw > ow ? 'You lead' : 'They lead'} ${Math.max(yw, ow)}–${Math.min(yw, ow)}`;
-  playTransition({ kicker: `${ROUND_NAMES[S.po.round]} · Game ${g.n}`, title: r.won ? 'Win' : 'Loss', sub: `${r.score} · ${state}`, note: r.plan ? `Game plan: ${r.plan}` : '', tone: r.won ? '' : 'loss', hold: 900 }, render);
+  if (!s.done) { UI.gameAnim = r.won ? 'w' : 'l'; render(); return; }   // a single game animates in place
+  const won = s.winner.team.user;                                        // a clinching game ends the series: stage card
+  playTransition({ kicker: `${ROUND_NAMES[S.po.round]} · Game ${g.n} · ${r.score}`, title: won ? 'Series won' : 'Series lost', sub: `${yw}–${ow} vs the ${(s.a.team.user ? s.b : s.a).team.label}`, note: r.plan ? `Game plan: ${r.plan}` : '', tone: won ? '' : 'loss', hold: 900 }, render);
 }
 function simSeries() {
   const s = userSeries(); if (!s) return;
