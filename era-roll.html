@@ -213,6 +213,17 @@
   .s5 { display: grid; justify-items: center; gap: 5px; min-width: 0; }
   .s5 .ring { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: var(--board); color: var(--led); font-family: var(--display); font-weight: 900; font-size: 22px; box-shadow: 0 0 0 2px var(--era, var(--line)); }
   .s5.open .ring { background: transparent; color: var(--faint); box-shadow: none; border: 1.5px dashed var(--faint); font-size: 18px; }
+  .s5.open:not(.current) { opacity: .55; }
+  .s5.current .ring {
+    border: 2px solid var(--led); color: var(--led); font-size: 22px;
+    background: color-mix(in srgb, var(--led) 14%, transparent);
+    animation: slotPulse 1.6s ease-in-out infinite;
+  }
+  .s5.current small { color: var(--led); font-weight: 700; }
+  @keyframes slotPulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--led) 45%, transparent); }
+    50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--led) 0%, transparent); }
+  }
   .s5 small { font-size: 11px; font-weight: 600; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* ---------- sheets ---------- */
@@ -1133,7 +1144,9 @@ function lineupStrip(players) {
     const p = players[i];
     return p
       ? `<span class="s5" style="--era:${ERA_INFO[p.era].color}"><span class="ring">${p.ovr}</span><small>${esc(shortName(p.name))}</small></span>`
-      : `<span class="s5 open"><span class="ring">${i + 1}</span><small>Open</small></span>`;
+      : i === players.length
+        ? `<span class="s5 open current" aria-current="step"><span class="ring">${i + 1}</span><small>${S.draft && S.draft.rolled != null ? 'Picking' : 'Up next'}</small></span>`
+        : `<span class="s5 open"><span class="ring">${i + 1}</span><small>Open</small></span>`;
   }).join('');
   return `<button class="card strip5" data-action="sheet" data-sheet="team" aria-label="Show team details">
     <span class="strip5-head"><span>Your five</span><span>${players.length ? `<b>${f1(lineupRating(players))}</b>` : ''}<span class="more">Details ›</span></span></span>
