@@ -230,6 +230,43 @@
   .notes li::before { content: ""; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; border-radius: 50%; background: var(--win); }
   .notes li.bad::before { background: var(--loss); }
 
+  .fit { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13px; }
+  .fit li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
+  .fit .mk { width: 8px; height: 8px; border-radius: 50%; background: var(--win); transform: translateY(-1px); }
+  .fit li.bad .mk { background: var(--loss); }
+  .fit li.plus .mk { background: var(--led); }
+  .fit li.pending .mk { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
+  .fit b { font-weight: 600; }
+  .fit .d { display: block; color: var(--muted); font-size: 12px; }
+  .fit em { font-style: normal; font-family: var(--mono); font-size: 12px; color: var(--win); }
+  .fit li.bad em { color: var(--loss); }
+  .fit li.plus em { color: var(--led); }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: var(--panel); color: var(--led); }
+
+  .plans { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .plan {
+    text-align: left; display: grid; gap: 3px; align-content: start;
+    background: var(--panel-2); border: 1.5px solid transparent; border-radius: 8px; padding: 10px 12px;
+  }
+  .plan:hover { border-color: var(--line); }
+  .plan[aria-pressed="true"] { border-color: var(--led); }
+  .plan b { font-family: var(--display); font-weight: 800; font-size: 18px; letter-spacing: .03em; text-transform: uppercase; line-height: 1.1; }
+  .plan span { font-size: 12px; color: var(--muted); }
+  .plan .dots { letter-spacing: 2px; color: var(--led); font-size: 11px; }
+  .plan .warn { color: var(--loss); font-weight: 600; }
+  .scout-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .trait { background: var(--panel-2); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; }
+  .trait .k { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+  .trait .v { font-family: var(--display); font-weight: 800; font-size: 20px; text-transform: uppercase; line-height: 1; }
+  .trait .v.weak { color: var(--win); }
+  .trait .v.strong { color: var(--loss); }
+  .trait .bar { height: 6px; background: var(--panel); border-radius: 99px; overflow: hidden; }
+  .trait .bar i { display: block; height: 100%; background: var(--muted); }
+  .trait.target { box-shadow: inset 0 0 0 1.5px var(--win); }
+  .subhead { font-family: var(--display); font-weight: 800; font-size: 16px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .game .plan-eff { color: var(--chalk); }
+
   .rollbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
   .rollbar .hint { color: #A47A1D; font-family: var(--mono); font-size: 12px; }
 
@@ -340,6 +377,7 @@
     .eras { grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); }
     .draft-grid, .two { grid-template-columns: minmax(0, 1fr); }
     .draft-grid > aside { order: 2; }
+    .plans, .scout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 520px) {
     .steps { grid-template-columns: minmax(0, 1fr); }
@@ -684,9 +722,9 @@ const TEAMS = RAW.map(([era, season, name, rows], id) => ({
 
 /* ======================= ENGINE ======================= */
 const DIFFS = {
-  rookie: { label: 'Rookie', rerolls: 2, cap: null, bench: 72, boost: 2 },
-  pro:    { label: 'Pro', rerolls: 1, cap: 460, bench: 72, boost: 1.5 },
-  hof:    { label: 'Hall of Fame', rerolls: 0, cap: 455, bench: 70, boost: 2 },
+  rookie: { label: 'Rookie', rerolls: 3, cap: null, bench: 74, boost: 0, scout: 'full' },
+  pro:    { label: 'Pro', rerolls: 2, cap: 460, bench: 72, boost: 0.5, scout: 'labels' },
+  hof:    { label: 'Hall of Fame', rerolls: 1, cap: 455, bench: 70, boost: 1, scout: 'none' },
 };
 const DIFF_KEYS = ['rookie', 'pro', 'hof'];
 const CAP_RESERVE = 76; // every roster has a player at or under 76, so reserving 76 per open pick keeps the draft finishable
@@ -695,6 +733,7 @@ function diffRules(d) {
   parts.push(d.cap ? `${d.cap} OVR salary cap` : 'no salary cap');
   parts.push(`bench rated ${d.bench}`);
   if (d.boost) parts.push(`legends +${d.boost} in the playoffs`);
+  parts.push(d.scout === 'full' ? 'full scouting reports' : d.scout === 'labels' ? 'scouting labels only' : 'no scouting summary');
   return parts.join(' · ');
 }
 function maxPickOvr(d, picks) {
@@ -723,6 +762,7 @@ function Phi(x) { // standard normal CDF
 }
 const avg = arr => arr.reduce((s, x) => s + x, 0) / (arr.length || 1);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const f1 = x => (Math.round(x * 10) / 10).toFixed(1);
 
 function teamLabel(t) { return `${t.season} ${t.name}`; }
 function teamShort(t) { return `’${t.season.slice(-2)} ${t.nick}`; }
@@ -731,21 +771,129 @@ function filler(n) {
   return { name: 'Reserve', pos: 'SF', pts: 4, reb: 2.5, ast: 1, stl: 0.4, blk: 0.2, fg: 44, ovr: FILL_OVR, generic: true, n };
 }
 
+/* Players known for floor spacing in the listed season (used for the Shooter tag). */
+const SHOOTERS = new Set([
+  'Larry Bird','Danny Ainge','Scott Wedman','Jerry Sichting','Byron Scott','Michael Cooper','Andrew Toney','Joe Dumars',
+  'John Paxson','Randy Wittman','Steve Kerr','Toni Kukoc','Jeff Hornacek','Bryon Russell','Kenny Smith','Vernon Maxwell',
+  'Robert Horry','Mario Elie','Dan Majerle','Dennis Scott','Nick Anderson','Hersey Hawkins','Detlef Schrempf','Sam Perkins',
+  'Hubert Davis','John Starks','Derek Fisher','Rick Fox','Ray Allen','Paul Pierce','Eddie House','James Posey','Stephen Jackson',
+  'Manu Ginobili','Bruce Bowen','Steve Nash','Raja Bell','Leandro Barbosa','James Jones','Mo Williams','Delonte West',
+  'Daniel Gibson','Wally Szczerbiak','Chauncey Billups','Rasheed Wallace','Mehmet Okur','Antoine Walker','Jason Williams',
+  'Stephen Curry','Kevin Durant','Klay Thompson','Shane Battier','Mario Chalmers','Kawhi Leonard','Danny Green','Patty Mills',
+  'Kyrie Irving','Kevin Love','J.R. Smith','Richard Jefferson','Matthew Dellavedova','Kyle Lowry','Marc Gasol','Serge Ibaka',
+  'Fred VanVleet','Norman Powell','James Harden','Chris Paul','Eric Gordon','Trevor Ariza','P.J. Tucker','Gerald Green',
+  'Jayson Tatum','Jaylen Brown','Kristaps Porzingis','Derrick White','Jrue Holiday','Al Horford','Payton Pritchard','Sam Hauser',
+  'Jamal Murray','Michael Porter Jr.','Kentavious Caldwell-Pope','Khris Middleton','Brook Lopez','Bryn Forbes','Donte DiVincenzo',
+  'Pat Connaughton','Bobby Portis','Luka Doncic','Tim Hardaway Jr.','P.J. Washington','Josh Green','Shai Gilgeous-Alexander',
+  'Jalen Williams','Chet Holmgren','Luguentz Dort','Aaron Wiggins','Alex Caruso','Cason Wallace','Jordan Poole','Andrew Wiggins',
+  'Otto Porter Jr.','Tyrese Maxey','Tobias Harris',"De'Anthony Melton",'Georges Niang',
+]);
+const isScorer = p => p.pts >= 24;
+const isPlaymaker = p => p.ast >= 6;
+const isShooter = p => SHOOTERS.has(p.name);
+const isRim = p => p.blk >= 1.5;
+const isStopper = p => p.stl >= 1.6;
+function playerTags(p) {
+  const t = [];
+  if (isScorer(p)) t.push('Scorer');
+  if (isPlaymaker(p)) t.push('Playmaker');
+  if (isShooter(p)) t.push('Shooter');
+  if (isRim(p)) t.push('Rim protector');
+  if (isStopper(p)) t.push('Stopper');
+  if (p.reb >= 10) t.push('Rebounder');
+  return t;
+}
+
+/* Team fit. Rows always describe the lineup; deltas only count once all five are in. */
 function chemistry(starters) {
+  const full = starters.length === 5;
+  const rows = [];
+  const add = (label, detail, delta, ok) => rows.push({ label, detail, delta: full ? delta : 0, status: !full ? (ok ? 'ok' : 'pending') : delta > 0 ? 'plus' : delta < 0 ? 'bad' : 'ok' });
+  const names = f => starters.filter(f).map(p => p.name.split(' ').slice(-1)[0]).join(', ');
+
+  const sc = starters.filter(isScorer).length;
+  add('Go-to scoring', sc === 0 ? 'No 24+ PPG scorer' : sc <= 2 ? `${sc} scorer${sc > 1 ? 's' : ''}: ${names(isScorer)}` : `${sc} scorers share one ball`,
+      sc === 0 ? -1.5 : sc <= 2 ? 0 : -2 * (sc - 2), sc >= 1 && sc <= 2);
+  const pm = starters.filter(isPlaymaker).length;
+  add('Playmaking', pm ? names(isPlaymaker) : 'Nobody averages 6+ assists', pm ? 0 : -1.5, pm > 0);
+  const sh = starters.filter(isShooter).length;
+  add('Spacing', `${sh} shooter${sh === 1 ? '' : 's'}${sh ? ': ' + names(isShooter) : ''}`, sh === 0 ? -2 : sh === 1 ? -1 : sh === 2 ? 0 : 1, sh >= 2);
+  const rp = starters.filter(isRim).length;
+  add('Rim protection', rp ? names(isRim) : 'Nobody averages 1.5+ blocks', rp ? 0 : -1.5, rp > 0);
+  const reb = starters.reduce((s2, p) => s2 + p.reb, 0);
+  add('Rebounding', `${f1(reb)} per game from the starters (28 needed)`, reb < 28 ? -1.5 : reb >= 36 ? 0.5 : 0, reb >= 28);
+  const st = starters.filter(isStopper).length;
+  if (st) add('Perimeter defense', names(isStopper), 0.5, true);
   const guards = starters.filter(p => p.pos === 'PG' || p.pos === 'SG').length;
   const bigs = starters.filter(p => p.pos === 'PF' || p.pos === 'C').length;
-  const pg = starters.some(p => p.pos === 'PG');
-  const out = { bonus: 0, notes: [] };
-  if (starters.length < 5) return out;
-  if (guards === 0) { out.bonus -= 3; out.notes.push({ bad: true, t: 'No guards: −3.0 for ball handling' }); }
-  else if (!pg) { out.bonus -= 1; out.notes.push({ bad: true, t: 'No point guard: −1.0 for playmaking' }); }
-  if (bigs === 0) { out.bonus -= 3; out.notes.push({ bad: true, t: 'No bigs: −3.0 for rebounding and rim protection' }); }
-  if (guards >= 4) { out.bonus -= 1.5; out.notes.push({ bad: true, t: 'Four or more guards: −1.5 for size' }); }
-  if (bigs >= 4) { out.bonus -= 1.5; out.notes.push({ bad: true, t: 'Four or more bigs: −1.5 for spacing' }); }
-  const eras = new Set(starters.map(p => p.era));
-  if (eras.size === 1) { out.bonus += 1; out.notes.push({ t: 'All five from one era: +1.0 chemistry' }); }
-  if (out.notes.length === 0) out.notes.push({ t: 'Balanced lineup: guards, wings and bigs covered' });
-  return out;
+  if (guards >= 4) add('Size', `${guards} guards`, -1, false);
+  if (bigs >= 4) add('Spacing inside', `${bigs} bigs crowd the paint`, -1, false);
+  if (full && new Set(starters.map(p => p.era)).size === 1) add('Era chemistry', 'All five from one era', 1, true);
+  if (full && rows.slice(0, 5).every(r => r.delta >= 0)) add('Complete team', 'Scoring, playmaking, spacing, rim protection and rebounding covered', 1, true);
+  const bonus = rows.reduce((s2, r) => s2 + r.delta, 0);
+  return { bonus, rows };
+}
+
+/* ---------- playoff game plans ---------- */
+const PLANS = [
+  { k: 'paint',  trait: 'rim',   name: 'Pound the paint',      attacks: 'weak rim protection',   needs: 'a scoring big' },
+  { k: 'boards', trait: 'reb',   name: 'Crash the boards',     attacks: 'poor rebounding',       needs: 'rebounders' },
+  { k: 'star',   trait: 'star',  name: 'Lock down their star', attacks: 'a one-man offense',     needs: 'a perimeter stopper' },
+  { k: 'space',  trait: 'perim', name: 'Pace and space',       attacks: 'weak perimeter defense', needs: 'shooters' },
+];
+const TRAITS = [
+  { k: 'rim',   label: 'Rim protection',    invert: true },
+  { k: 'reb',   label: 'Rebounding',        invert: true },
+  { k: 'star',  label: 'Star reliance',     invert: false },
+  { k: 'perim', label: 'Perimeter defense', invert: true },
+];
+function teamTraits(team) {
+  const st = team.starters.filter(p => !p.generic);
+  const pts = st.map(p => p.pts);
+  return {
+    rim: Math.max(...st.map(p => p.blk)),
+    reb: st.reduce((a, p) => a + p.reb, 0),
+    star: Math.max(...pts) / pts.reduce((a, x) => a + x, 0),
+    perim: st.reduce((a, p) => a + p.stl, 0),
+  };
+}
+function traitNorm(teams) {
+  const n = {};
+  TRAITS.forEach(t => {
+    const xs = teams.map(tm => teamTraits(tm)[t.k]);
+    n[t.k] = { min: Math.min(...xs), max: Math.max(...xs) };
+  });
+  return n;
+}
+function vulnerability(team, norm) {
+  const tr = teamTraits(team), v = {};
+  TRAITS.forEach(t => {
+    const { min, max } = norm[t.k];
+    const x = max > min ? (tr[t.k] - min) / (max - min) : 0.5;
+    v[t.k] = clamp(t.invert ? 1 - x : x, 0, 1);
+  });
+  return v;
+}
+function execution(team) {
+  const st = team.starters;
+  const bigPts = Math.max(0, ...st.filter(p => p.pos === 'PF' || p.pos === 'C').map(p => p.pts));
+  return {
+    paint: clamp((bigPts - 8) / 17, 0, 1),
+    boards: clamp((st.reduce((a, p) => a + p.reb, 0) - 24) / 16, 0, 1),
+    star: clamp((Math.max(...st.map(p => p.stl + 0.5 * p.blk)) - 0.8) / 1.7, 0, 1),
+    space: clamp(st.filter(isShooter).length / 4, 0, 1),
+  };
+}
+const RANK_EFFECT = [3.5, 1, -1.5, -3]; // their weakest trait first, their strongest last
+function planEffect(plan, vuln, exec, repeats) {
+  const order = TRAITS.map(t => t.k).sort((a, b) => vuln[b] - vuln[a]);
+  const base = RANK_EFFECT[order.indexOf(plan.trait)];
+  return (base > 0 ? base * (0.6 + 0.4 * exec[plan.k]) : base) - repeats;
+}
+function repeatsFor(series, planKey) {
+  let k = 0;
+  for (let i = series.games.length - 1; i >= 0 && series.games[i].plan === planKey; i--) k++;
+  return k;
 }
 
 function rateLineup(starters, bench) {
@@ -870,11 +1018,13 @@ function seedField(user, wins, legends, league) {
 function newSeries(a, b) { return { a, b, games: [], wa: 0, wb: 0, done: false, winner: null }; }
 const HOME_PATTERN = [0, 0, 1, 1, 0, 1, 0]; // 0 = higher seed (a) at home
 
-function playSeriesGame(s) {
+function playSeriesGame(s, adjA = 0, adjB = 0) {
   if (s.done) return null;
   const n = s.games.length;
   const aHome = HOME_PATTERN[n] === 0;
-  const g = aHome ? simGame(s.a.team, s.b.team) : simGame(s.b.team, s.a.team);
+  const A = adjA ? { ...s.a.team, rating: s.a.team.rating + adjA } : s.a.team;
+  const B = adjB ? { ...s.b.team, rating: s.b.team.rating + adjB } : s.b.team;
+  const g = aHome ? simGame(A, B) : simGame(B, A);
   const aPts = aHome ? g.hs : g.as, bPts = aHome ? g.as : g.hs;
   const aBox = aHome ? g.hb : g.ab, bBox = aHome ? g.ab : g.hb;
   const rec = { n: n + 1, aHome, aPts, bPts, ot: g.ot, aBox, bBox };
@@ -890,7 +1040,6 @@ let S = { screen: 'home' };
 const reduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const f1 = x => (Math.round(x * 10) / 10).toFixed(1);
 
 function loadDiff() { try { const k = localStorage.getItem('eraroll.diff'); return DIFFS[k] ? k : 'pro'; } catch (e) { return 'pro'; } }
 function saveDiff(k) { try { localStorage.setItem('eraroll.diff', k); } catch (e) { /* storage unavailable */ } }
@@ -957,9 +1106,9 @@ function viewHome() {
       <div class="sec-head"><div><div class="eyebrow">How a run works</div><h2>Four stages</h2></div></div>
       <div class="steps">
         <div class="step"><div class="n">1</div><h3>Roll</h3><p>The board lands on a random era, then a random team from it. Rerolls and the salary cap depend on difficulty.</p></div>
-        <div class="step"><div class="n">2</div><h3>Draft</h3><p>Pick one player from that roster. Every card shows points, rebounds, assists, steals, blocks and FG%.</p></div>
+        <div class="step"><div class="n">2</div><h3>Draft</h3><p>Pick one player from that roster. Build a team that fits: scoring, playmaking, shooters, rim protection and rebounding all count.</p></div>
         <div class="step"><div class="n">3</div><h3>Season</h3><p>Your five play 82 games against every team-season in the pool. Your record sets your playoff seed.</p></div>
-        <div class="step"><div class="n">4</div><h3>Playoffs</h3><p>A 16-team bracket: you plus the three best teams of each era. Four best-of-seven rounds, and legends raise their level on harder settings.</p></div>
+        <div class="step"><div class="n">4</div><h3>Playoffs</h3><p>You plus the three best teams of each era. Before every game, read the scouting report and pick a game plan that attacks their weakness.</p></div>
       </div>
     </section>
     <section>
@@ -1006,6 +1155,7 @@ function playerCard(p, { action, disabled, why, origin } = {}) {
       <div class="meta"><span class="chip">${p.pos}</span>${origin ? `<span class="chip era">${esc(teamShort(t))}</span>` : ''}</div></div>
     </div>
     ${statRow(p)}
+    ${playerTags(p).length ? `<div class="tags">${playerTags(p).map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
     ${why ? `<div class="why">${esc(why)}</div>` : ''}
   </${tag}>`;
 }
@@ -1023,10 +1173,11 @@ function slotsView(picks, withCap) {
   let meter = '';
   if (players.length) {
     const bench = [0, 1, 2].map(() => ({ ovr: D.bench }));
-    const { rating, chem } = players.length === 5 ? rateLineup(players, bench) : { rating: 0.8 * avg(players.map(p => p.ovr)) + 0.2 * D.bench, chem: { notes: [] } };
+    const full = players.length === 5;
+    const { rating, chem } = full ? rateLineup(players, bench) : { rating: 0.8 * avg(players.map(p => p.ovr)) + 0.2 * D.bench, chem: chemistry(players) };
     const pct = clamp((rating - 70) / 30 * 100, 0, 100);
-    meter = `<div class="meter"><div class="lab"><span>${players.length === 5 ? 'Team rating' : 'Rating so far'}</span><b>${f1(rating)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
-      ${chem.notes.length ? `<ul class="notes">${chem.notes.map(n => `<li class="${n.bad ? 'bad' : ''}">${esc(n.t)}</li>`).join('')}</ul>` : ''}`;
+    meter = `<div class="meter"><div class="lab"><span>${full ? 'Team rating' : 'Rating so far'}</span><b>${f1(rating)}</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
+      <ul class="fit">${chem.rows.map(r => `<li class="${r.status}"><span class="mk"></span><span><b>${esc(r.label)}</b><span class="d">${esc(r.detail)}</span></span>${full && r.delta ? `<em>${r.delta > 0 ? '+' : '−'}${f1(Math.abs(r.delta))}</em>` : ''}</li>`).join('')}</ul>`;
   }
   let cap = '';
   if (withCap && D.cap) {
@@ -1061,7 +1212,7 @@ function viewDraft() {
   const canReroll = !d.spinning && t != null && d.rerolls > 0;
   return `${topbar('Draft')}
   <main class="wrap screen">
-    <div><h1>Pick ${Math.min(n + 1, 5)} of 5</h1><p class="lede">Roll the board, then draft one player from the team it lands on. A balanced five with guards and bigs plays better than five scorers.${curDiff().cap ? ` Your five must fit under a ${curDiff().cap} total OVR cap, so plan where to spend.` : ''}</p></div>
+    <div><h1>Pick ${Math.min(n + 1, 5)} of 5</h1><p class="lede">Roll the board, then draft one player from the team it lands on. Fit counts: the panel lists what your five still needs.${curDiff().cap ? ` Your five must fit under a ${curDiff().cap} total OVR cap, so plan where to spend.` : ''}</p></div>
     <div class="draft-grid">
       <aside class="panel"><h2>Your five</h2>${slotsView(d.picks, true)}</aside>
       <div style="display:grid;gap:18px;min-width:0">
@@ -1209,6 +1360,38 @@ function rosterTable(team) {
   </tbody></table></div>`;
 }
 
+function scoutView(team) {
+  const D = curDiff();
+  if (D.scout === 'none') return `<div><div class="subhead">Scouting</div><p class="lede" style="margin-top:4px">Hall of Fame: no scouting summary. Read their roster stats below and pick the plan yourself.</p></div>`;
+  const v = vulnerability(team, S.po.norm);
+  const top = TRAITS.reduce((a, t) => v[t.k] > v[a.k] ? t : a, TRAITS[0]);
+  const cells = TRAITS.map(t => {
+    const x = v[t.k];
+    const label = t.k === 'star' ? (x >= 0.67 ? 'High' : x >= 0.34 ? 'Medium' : 'Low') : (x >= 0.67 ? 'Weak' : x >= 0.34 ? 'Average' : 'Strong');
+    const cls = x >= 0.67 ? 'weak' : x < 0.34 ? 'strong' : '';
+    const full = D.scout === 'full';
+    return `<div class="trait ${full && t === top ? 'target' : ''}"><span class="k">${t.label}</span><span class="v ${cls}">${label}</span>
+      ${full ? `<div class="bar"><i style="width:${Math.round((t.invert ? 1 - x : x) * 100)}%"></i></div>${t === top ? '<span class="k" style="color:var(--win)">Weakest spot</span>' : ''}` : ''}</div>`;
+  }).join('');
+  return `<div style="display:grid;gap:8px"><div class="subhead">Scouting</div><div class="scout-grid">${cells}</div></div>`;
+}
+
+function plansView(s, youTeam) {
+  const P = S.po;
+  const ex = execution(youTeam);
+  const dots = x => { const n = Math.round(x * 4); return '●'.repeat(n) + '○'.repeat(4 - n); };
+  return `<div style="display:grid;gap:8px"><div class="subhead">Game plan for game ${s.games.length + 1}</div>
+    <div class="plans">${PLANS.map(pl => {
+      const r = repeatsFor(s, pl.k);
+      return `<button class="plan" data-action="plan" data-k="${pl.k}" aria-pressed="${P.plan === pl.k}">
+        <b>${pl.name}</b><span>Attacks ${pl.attacks}</span>
+        <span>Your execution <span class="dots" aria-label="${Math.round(ex[pl.k] * 4)} of 4">${dots(ex[pl.k])}</span></span>
+        ${r ? `<span class="warn">Used ${r} game${r > 1 ? 's' : ''} in a row: −${r}.0, they've adjusted</span>` : ''}
+      </button>`;
+    }).join('')}</div>
+    <p class="fine" style="margin:0">Aiming at their weakest spot is worth up to +3.5 rating for the game; aiming at their strongest costs 3. Your execution scales the gain.</p></div>`;
+}
+
 function viewPlayoffs() {
   const P = S.po;
   const s = userSeries();
@@ -1224,8 +1407,9 @@ function viewPlayoffs() {
       const yTop = ybox.slice().sort((a, b) => b.pts - a.pts)[0];
       const oTop = obox.slice().sort((a, b) => b.pts - a.pts)[0];
       const youHome = youA ? g.aHome : !g.aHome;
+      const pl = PLANS.find(x => x.k === g.plan);
       return `<div class="game"><span class="g">Game ${g.n}</span><span class="res ${yp > op ? 'W' : 'L'}">${yp > op ? 'W' : 'L'}</span>
-        <span class="line"><b>${yp}–${op}</b>${g.ot ? ' OT' : ''} ${youHome ? 'home' : 'away'} · ${esc(yTop.p.name)} ${yTop.pts} pts, ${yTop.reb} reb, ${yTop.ast} ast · ${esc(oTop.p.name)} ${oTop.pts} pts</span></div>`;
+        <span class="line"><b>${yp}–${op}</b>${g.ot ? ' OT' : ''} ${youHome ? 'home' : 'away'}${pl ? ` · <span class="plan-eff">${esc(pl.name)} ${g.eff >= 0 ? '+' : '−'}${f1(Math.abs(g.eff))}</span>` : ''} · ${esc(yTop.p.name)} ${yTop.pts} pts, ${yTop.reb} reb, ${yTop.ast} ast · ${esc(oTop.p.name)} ${oTop.pts} pts</span></div>`;
     }).join('');
     const next = s.games.length + 1;
     panel = `<section class="panel" style="display:grid;gap:14px">
@@ -1237,17 +1421,18 @@ function viewPlayoffs() {
         <div class="side r"><div class="tn">${esc(opp.team.label)}</div><div class="sub">Seed ${opp.seed} · rating ${f1(opp.team.rating)}</div></div>
       </div>
       ${games ? `<div class="games">${games}</div>` : ''}
+      ${s.done ? '' : scoutView(opp.team) + plansView(s, you.team)}
       <div class="actions">
         ${s.done
           ? `<button class="btn" data-action="advance" id="advance-btn">${s.winner.team.user ? (P.round === 3 ? 'See the result' : 'Next round') : 'See the result'}</button>`
-          : `<button class="btn" data-action="game" id="game-btn">Play game ${next}</button><button class="btn ghost small" data-action="simseries" id="simseries-btn">Sim the rest of the series</button>`}
+          : `<button class="btn" data-action="game" id="game-btn" ${P.plan ? '' : 'disabled'}>${P.plan ? `Play game ${next}` : 'Choose a game plan'}</button><button class="btn ghost small" data-action="simseries" id="simseries-btn" ${P.plan ? '' : 'disabled'}>Sim the rest with this plan</button>`}
       </div>
-      <details class="scout"><summary>Scouting report: ${esc(opp.team.label)}</summary>${rosterTable(opp.team)}</details>
+      <details class="scout" ${s.done ? '' : 'open'}><summary>${esc(opp.team.label)} roster</summary>${rosterTable(opp.team)}</details>
     </section>`;
   }
   return `${topbar('Playoffs')}
   <main class="wrap screen">
-    <div><h1>The gauntlet</h1><p class="lede">You against the three best teams of every era. Higher seed hosts games 1, 2, 5 and 7.${curDiff().boost ? ` On ${esc(curDiff().label)}, every legend plays at +${curDiff().boost} rating.` : ''}</p></div>
+    <div><h1>The gauntlet</h1><p class="lede">You against the three best teams of every era. Pick a game plan before every game. Higher seed hosts games 1, 2, 5 and 7.${curDiff().boost ? ` On ${esc(curDiff().label)}, every legend plays at +${curDiff().boost} rating.` : ''}</p></div>
     ${panel}
     <section class="panel"><h2>Bracket</h2>${bracketView()}</section>
   </main>`;
@@ -1389,14 +1574,24 @@ function startPlayoffs() {
   const slots = BRACKET_ORDER.map(sd => bySeed[sd]);
   const r0 = [];
   for (let i = 0; i < 16; i += 2) r0.push(newSeries(slots[i], slots[i + 1]));
-  S.po = { round: 0, rounds: [r0], out: false };
+  S.po = { round: 0, rounds: [r0], out: false, plan: null, norm: traitNorm(S.field.filter(e => !e.team.user).map(e => e.team)) };
   S.screen = 'playoffs';
   render();
   window.scrollTo(0, 0);
 }
 
-function playGame() { const s = userSeries(); if (!s) return; playSeriesGame(s); render(); }
-function simSeries() { const s = userSeries(); if (!s) return; finishSeries(s); render(); }
+function playUserGame(s) {
+  const P = S.po;
+  const plan = PLANS.find(x => x.k === P.plan);
+  if (!plan || s.done) return;
+  const youA = s.a.team.user;
+  const you = youA ? s.a : s.b, opp = youA ? s.b : s.a;
+  const eff = planEffect(plan, vulnerability(opp.team, P.norm), execution(you.team), repeatsFor(s, plan.k));
+  const rec = youA ? playSeriesGame(s, eff, 0) : playSeriesGame(s, 0, eff);
+  rec.plan = plan.k; rec.eff = eff;
+}
+function playGame() { const s = userSeries(); if (!s) return; playUserGame(s); render(); }
+function simSeries() { const s = userSeries(); if (!s) return; while (!s.done) playUserGame(s); render(); }
 
 function userPlayoffAcc() {
   const acc = {};
@@ -1462,6 +1657,7 @@ function advance() {
   }
   P.rounds.push(next);
   P.round++;
+  P.plan = null;
   render();
   window.scrollTo(0, 0);
 }
@@ -1487,6 +1683,7 @@ document.addEventListener('click', e => {
   else if (a === 'season') startSeason();
   else if (a === 'skip') skipSeason();
   else if (a === 'playoffs') startPlayoffs();
+  else if (a === 'plan') { S.po.plan = b.dataset.k; render(); }
   else if (a === 'game') playGame();
   else if (a === 'simseries') simSeries();
   else if (a === 'advance') advance();
