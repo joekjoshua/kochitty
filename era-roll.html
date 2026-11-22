@@ -319,7 +319,8 @@
   .s5 { display: grid; justify-items: center; gap: 5px; min-width: 0; }
   .s5 .ring { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: var(--board); color: var(--led); font-family: var(--display); font-weight: 900; font-size: 22px; box-shadow: 0 0 0 2px var(--era, var(--line)); }
   .s5.open .ring { background: transparent; color: var(--faint); box-shadow: none; border: 1.5px dashed var(--faint); font-size: 18px; }
-  .s5.open:not(.current) { opacity: .55; }
+  .s5.open:not(.current):not(.ready) { opacity: .45; }
+  .s5.open.ready .ring { border-color: color-mix(in srgb, var(--led) 60%, transparent); color: var(--led); }
   .s5 .ring.pos { font-size: 17px; letter-spacing: .02em; }
   .s5 small i { display: block; font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--faint); text-align: center; }
   .pickhero .big-ring.pos { font-size: 52px; }
@@ -868,7 +869,7 @@ const DIFFS = {
   hof:    { label: 'Hall of Fame', rerolls: 1, cap: 455, bench: 70, boost: 1, scout: 'none' },
 };
 const DIFF_KEYS = ['rookie', 'pro', 'hof'];
-/* The draft fills one position per pick, in this order. */
+/* A five holds one player at each position; picks can come in any order. */
 const POS_ORDER = ['PG', 'SG', 'SF', 'PF', 'C'];
 const POS_NAME = { PG: 'point guard', SG: 'shooting guard', SF: 'small forward', PF: 'power forward', C: 'center' };
 const CAP_RESERVE = 76; // every roster has a player at or under 76, so reserving 76 per open pick keeps the draft finishable
@@ -1060,7 +1061,7 @@ function buildRealTeam(t, takenNames) {
 }
 
 function buildUserTeam(picks, benchOvr) {
-  const starters = picks.map(r => TEAMS[r.t].players[r.i]);
+  const starters = picks.map(r => TEAMS[r.t].players[r.i]).sort((a, b) => POS_ORDER.indexOf(a.pos) - POS_ORDER.indexOf(b.pos));
   const bench = [0, 1, 2].map(i => ({ ...filler(i), ovr: benchOvr, pts: 6, reb: 3, ast: 1.5 }));
   const { rating, chem } = rateLineup(starters, bench);
   return {
@@ -1259,13 +1260,15 @@ function lineupRating(players) {
   return 0.8 * avg(players.map(p => p.ovr)) + 0.2 * D.bench;
 }
 function lineupStrip(players) {
-  const slots = [0, 1, 2, 3, 4].map(i => {
-    const p = players[i];
-    return p
-      ? `<span class="s5 ${UI.popSlot === i ? 'pop' : ''} ${UI.incoming === i ? 'incoming' : ''}" data-slot="${i}" style="--era:${ERA_INFO[p.era].color}"><span class="ring">${p.ovr}</span><small><i>${POS_ORDER[i]}</i>${esc(shortName(p.name))}</small></span>`
-      : i === players.length
-        ? `<span class="s5 open current" aria-current="step"><span class="ring pos">${POS_ORDER[i]}</span><small>${S.draft && S.draft.rolled != null ? 'Picking' : 'Up next'}</small></span>`
-        : `<span class="s5 open"><span class="ring pos">${POS_ORDER[i]}</span><small>Open</small></span>`;
+  // One slot per position. After a roll, open slots this roster can fill are highlighted.
+  const d = S.draft;
+  const rolled = d && d.rolled != null && !d.spinning ? TEAMS[d.rolled] : null;
+  const fillable = new Set(rolled ? rolled.players.filter(x => !pickBlock(x)).map(x => x.pos) : []);
+  const slots = POS_ORDER.map((pos, i) => {
+    const p = players.find(x => x.pos === pos);
+    if (p) return `<span class="s5 ${UI.popSlot === i ? 'pop' : ''} ${UI.incoming === i ? 'incoming' : ''}" data-slot="${i}" style="--era:${ERA_INFO[p.era].color}"><span class="ring">${p.ovr}</span><small><i>${pos}</i>${esc(shortName(p.name))}</small></span>`;
+    if (fillable.has(pos)) return `<span class="s5 open current" data-slot="${i}"><span class="ring pos">${pos}</span><small>On roster</small></span>`;
+    return `<span class="s5 open ${rolled ? '' : 'ready'}" data-slot="${i}"><span class="ring pos">${pos}</span><small>Open</small></span>`;
   }).join('');
   return `<button class="card strip5" data-action="sheet" data-sheet="team" aria-label="Show team details">
     <span class="strip5-head"><span>Your five</span><span>${players.length ? `<b>${f1(lineupRating(players))}</b>` : ''}<span class="more">Details ›</span></span></span>
@@ -1298,9 +1301,10 @@ function capBar() {
     <div class="bar"><i style="width:${clamp(used / D.cap * 100, 0, 100)}%"></i></div>
     ${picks.length < 5 ? `<div class="lab"><span>Most you can spend on this pick</span><b>${maxPickOvr(D, picks)}</b></div>` : ''}</div>`;
 }
-function slotPos() { return POS_ORDER[Math.min(S.draft.picks.length, 4)]; }
+function openPositions() { const have = picksPlayers().map(p => p.pos); return POS_ORDER.filter(pos => !have.includes(pos)); }
 function pickBlock(p) {
-  if (p.pos !== slotPos()) return `Not a ${slotPos()}: you are drafting your ${POS_NAME[slotPos()]}`;
+  const holder = picksPlayers().find(x => x.pos === p.pos);
+  if (holder) return `Your ${p.pos} spot is taken by ${holder.name}`;
   if (takenNames().has(p.name)) return 'Already on your team (another season)';
   const max = maxPickOvr(curDiff(), S.draft.picks);
   if (p.ovr > max) return `Over the cap: ${max} OVR max on this pick`;
@@ -1322,7 +1326,7 @@ function viewHome() {
   const demo = TEAMS.find(t => t.season === '1995-96' && t.nick === 'Bulls');
   const steps = [
     ['Roll', 'The board lands on a random era, then a random team from it.'],
-    ['Draft', 'Fill one position per pick, in order: PG, SG, SF, PF, C. Build a five that fits: scoring, playmaking, shooters, rim protection, rebounding.'],
+    ['Draft', 'One player per position: PG, SG, SF, PF and C, in any order. Build a five that fits: scoring, playmaking, shooters, rim protection, rebounding.'],
     ['Season', 'Your five play 82 games against every team-season in the pool. Your record sets your seed.'],
     ['Playoffs', 'You plus the three best teams of each era. Before every game, pick a plan that attacks their weakness.'],
   ];
@@ -1394,9 +1398,9 @@ function viewDraft() {
   } else if (!t && !d.spinning) {
     // Before the roll: the pick itself is the subject, and the budget is first-class information.
     stage = `<section class="pickhero">
-        <div class="big-ring pos" aria-hidden="true">${POS_ORDER[n]}</div>
-        <div><span class="k">PICK ${n + 1} OF 5</span><b>Roll for your ${POS_NAME[POS_ORDER[n]]}</b>
-          <span class="d">The board lands on a random era, then a team from it that has a ${POS_ORDER[n]} you can draft.</span></div>
+        <div class="big-ring" aria-hidden="true">${n + 1}</div>
+        <div><span class="k">PICK ${n + 1} OF 5</span><b>${n === 4 ? `Roll for your ${POS_NAME[openPositions()[0]]}` : 'Roll for your next player'}</b>
+          <span class="d">Open: ${openPositions().join(', ')}. The board lands on a random era, then a team from it with a player you can draft at an open position.</span></div>
       </section>
       ${budgetFull()}`;
   } else {
@@ -1412,15 +1416,15 @@ function viewDraft() {
       </div>
     </div>`;
     if (t && !d.spinning) {
-      const pos = slotPos();
-      const ps = t.players.slice().sort((a, b) => (b.pos === pos) - (a.pos === pos) || b.ovr - a.ovr);
-      stage += `<section><div class="sec"><span>Roster<span class="sec-sub" style="display:block;margin-top:2px">${POS_NAME[pos][0].toUpperCase() + POS_NAME[pos].slice(1)}s first · tap a player to see his card</span></span>
+      const ok = p => !pickBlock(p);
+      const ps = t.players.slice().sort((a, b) => ok(b) - ok(a) || b.ovr - a.ovr);
+      stage += `<section><div class="sec"><span>Roster<span class="sec-sub" style="display:block;margin-top:2px">Open positions first · tap a player to see his card</span></span>
           <button class="link-btn" data-action="reroll" id="reroll-btn" ${d.rerolls > 0 ? '' : 'disabled'}>↻ Reroll · ${d.rerolls}</button></div>
         ${budgetLine()}
         <div class="list ${UI.landed ? 'cascade' : ''}">${ps.map((p, k) => playerRow(p, { action: 'sheet-player', why: pickBlock(p), i: k })).join('')}</div></section>`;
     }
   }
-  return appbar(n === 5 ? 'Draft complete' : `Pick ${n + 1} of 5 · ${POS_ORDER[n]}`, n === 5 ? 'Draft' : `Draft · ${POS_NAME[POS_ORDER[n]]}`, 0) + page(`
+  return appbar(n === 5 ? 'Draft complete' : `Pick ${n + 1} of 5`, n === 5 ? 'Draft' : `Draft · open: ${openPositions().join(', ')}`, 0) + page(`
     <div class="dock ${UI.dockCompact ? 'compact' : ''}" id="dock">${lineupStrip(players)}${needsRow(players)}</div>
     ${stage}`) + actionbar(
     // While choosing, the player rows are the action; reroll is a small side control in the roster header.
@@ -1773,8 +1777,8 @@ function startDraft() {
 function roll() {
   const d = S.draft;
   if (d.spinning) return;
-  const pos = slotPos(), max = maxPickOvr(curDiff(), d.picks), taken = takenNames();
-  const avail = TEAMS.filter(t => !d.usedTeams.includes(t.id) && t.players.some(p => p.pos === pos && p.ovr <= max && !taken.has(p.name)));
+  const open = openPositions(), max = maxPickOvr(curDiff(), d.picks), taken = takenNames();
+  const avail = TEAMS.filter(t => !d.usedTeams.includes(t.id) && t.players.some(p => open.includes(p.pos) && p.ovr <= max && !taken.has(p.name)));
   const era = pick(ERAS.filter(e => avail.some(t => t.era === e)));
   const target = pick(avail.filter(t => t.era === era));
   d.usedTeams.push(target.id);
@@ -1812,10 +1816,11 @@ function draftPick(i) {
   const from = srcEl ? srcEl.getBoundingClientRect() : null;
   UI.sheet = null;
   const n = d.picks.length;
-  UI.incoming = n - 1;   // the slot is filled but hidden until the badge lands in it
+  const slot = POS_ORDER.indexOf(p.pos);
+  UI.incoming = slot;   // the slot is filled but hidden until the badge lands in it
   render();
-  flyToSlot(from, n - 1, p, () => {
-    UI.incoming = null; UI.popSlot = n - 1; render();
+  flyToSlot(from, slot, p, () => {
+    UI.incoming = null; UI.popSlot = slot; render();
     // Finishing the draft ends a stage, so that one gets the full stage card.
     if (n === 5) setTimeout(() => {
       if (S.draft !== d || S.screen !== 'draft') return; // the player left this run before the card was due
