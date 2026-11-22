@@ -480,6 +480,13 @@
   .plan span { font-size: 12px; color: var(--muted); }
   .plan .dots { letter-spacing: 2px; color: var(--led); font-size: 11px; }
   .plan .warn { color: var(--loss); font-weight: 600; }
+  .plan .pc { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .plan .pc.up { color: var(--win); }
+  .plan .pc.down { color: var(--loss); }
+  .odds { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: baseline; background: var(--panel); border-radius: 14px; padding: 10px 14px; }
+  .odds span:first-child { font-size: 13px; color: var(--muted); }
+  .odds b { font-family: var(--mono); font-size: 24px; color: var(--chalk); grid-row: span 2; align-self: center; }
+  .odds .muted { font-size: 12px; }
   .scout-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .trait { background: var(--panel); border-radius: 14px; padding: 12px; display: grid; gap: 5px; }
   .trait .k { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
@@ -875,9 +882,9 @@ const TEAMS = RAW.map(([era, season, name, rows], id) => ({
 
 /* ======================= ENGINE ======================= */
 const DIFFS = {
-  rookie: { label: 'Rookie', rerolls: 3, cap: null, bench: 74, boost: 0, scout: 'full' },
-  pro:    { label: 'Pro', rerolls: 2, cap: 460, bench: 72, boost: 0.5, scout: 'labels' },
-  hof:    { label: 'Hall of Fame', rerolls: 1, cap: 455, bench: 70, boost: 1, scout: 'none' },
+  rookie: { label: 'Rookie', rerolls: 3, cap: null, bench: 74, boost: 1, scout: 'full' },
+  pro:    { label: 'Pro', rerolls: 2, cap: 460, bench: 72, boost: 1.5, scout: 'labels' },
+  hof:    { label: 'Hall of Fame', rerolls: 1, cap: 455, bench: 70, boost: 2, scout: 'none' },
 };
 const DIFF_KEYS = ['rookie', 'pro', 'hof'];
 /* A five holds one player at each position; picks can come in any order. */
@@ -934,7 +941,7 @@ function maxPickOvr(d, picks) {
 }
 const FILL_OVR = 72;
 const HOME_EDGE = 1.5;
-const MARGIN_SD = 12;
+const MARGIN_SD = 8; // per-game luck: a 4-point rating edge wins ~71% of single games
 const MARGIN_K = 1.1;
 
 const rand = () => Math.random();
@@ -1075,11 +1082,18 @@ function execution(team) {
     space: clamp(st.filter(isShooter).length / 4, 0, 1),
   };
 }
-const RANK_EFFECT = [3.5, 1, -1.5, -3]; // their weakest trait first, their strongest last
+const RANK_EFFECT = [5, 1.5, -2, -4.5]; // their weakest trait first, their strongest last
 function planEffect(plan, vuln, exec, repeats) {
   const order = TRAITS.map(t => t.k).sort((a, b) => vuln[b] - vuln[a]);
   const base = RANK_EFFECT[order.indexOf(plan.trait)];
   return (base > 0 ? base * (0.6 + 0.4 * exec[plan.k]) : base) - repeats;
+}
+// Win chance for the user in the next game of a series, with a rating adjustment from the game plan.
+function nextGameChance(s, adj) {
+  const youA = s.a.team.user, you = youA ? s.a : s.b, opp = youA ? s.b : s.a;
+  const aHome = HOME_PATTERN[s.games.length] === 0;
+  const youHome = youA ? aHome : !aHome;
+  return winProb({ rating: you.team.rating + adj }, opp.team, youHome ? HOME_EDGE : -HOME_EDGE);
 }
 function repeatsFor(series, planKey) {
   let k = 0;
@@ -1593,18 +1607,25 @@ function scoutView(team) {
   }).join('')}</div>`;
 }
 function plansView(s, youTeam) {
-  const P = S.po;
   const ex = execution(youTeam);
+  const youA = s.a.team.user, opp = youA ? s.b : s.a;
+  const v = vulnerability(opp.team, S.norm);
+  const showEach = curDiff().scout === 'full';   // Rookie shows each plan's win chance; harder levels show it after the game
+  const base = nextGameChance(s, 0);
+  const aHome = HOME_PATTERN[s.games.length] === 0, youHome = youA ? aHome : !aHome;
   const dots = x => { const n = Math.round(x * 4); return '●'.repeat(n) + '○'.repeat(4 - n); };
-  return `<div class="plans">${PLANS.map(pl => {
+  return `<div class="odds"><span>Win chance before your plan</span><b>${Math.round(base * 100)}%</b><span class="muted">${youHome ? 'Home game' : 'Road game'} · ratings ${f1((youA ? s.a : s.b).team.rating)} vs ${f1(opp.team.rating)}</span></div>
+  <div class="plans">${PLANS.map(pl => {
     const r = repeatsFor(s, pl.k);
+    const c = nextGameChance(s, planEffect(pl, v, ex, r));
     return `<button class="plan" data-action="plan" data-k="${pl.k}" aria-pressed="${S.plan === pl.k}">
       <b>${pl.name}</b><span>Attacks ${pl.attacks}</span>
       <span>Execution <span class="dots" aria-label="${Math.round(ex[pl.k] * 4)} of 4">${dots(ex[pl.k])}</span></span>
+      ${showEach ? `<span class="pc ${c >= base ? 'up' : 'down'}">Win chance ${Math.round(c * 100)}%</span>` : ''}
       ${r ? `<span class="warn">Used ${r}× in a row: −${r}.0</span>` : ''}
     </button>`;
   }).join('')}</div>
-  <p class="fine">Hitting their weakest spot is worth up to +3.5 rating for the game. Hitting their strongest costs 3. Check the Scout tab.</p>`;
+  <p class="fine">Hitting their weakest spot is worth up to +5 rating for the game (about +20 points of win chance). Hitting their strongest costs 4.5. ${showEach ? '' : 'The result line shows what your plan did to your chances.'}</p>`;
 }
 function gameLine(s, g) {
   const youA = s.a.team.user;
@@ -1615,7 +1636,7 @@ function gameLine(s, g) {
   const youHome = youA ? g.aHome : !g.aHome;
   const pl = PLANS.find(x => x.k === g.plan);
   return { won: yp > op, score: `${yp}–${op}${g.ot ? ' OT' : ''}`, where: youHome ? 'home' : 'away',
-    plan: pl ? `${pl.name} ${g.eff >= 0 ? '+' : '−'}${f1(Math.abs(g.eff))}` : '',
+    plan: pl ? `${pl.name} ${g.eff >= 0 ? '+' : '−'}${f1(Math.abs(g.eff))}${g.base != null ? `: win chance ${Math.round(g.base * 100)}% → ${Math.round(g.chance * 100)}%` : ''}` : '',
     top: `${yTop.p.name} ${yTop.pts} pts, ${yTop.reb} reb, ${yTop.ast} ast · ${oTop.p.name} ${oTop.pts} pts` };
 }
 
@@ -2101,8 +2122,9 @@ function playUserGame(s) {
   const youA = s.a.team.user;
   const you = youA ? s.a : s.b, opp = youA ? s.b : s.a;
   const eff = planEffect(plan, vulnerability(opp.team, S.norm), execution(you.team), repeatsFor(s, plan.k));
+  const base = nextGameChance(s, 0), chance = nextGameChance(s, eff);
   const rec = youA ? playSeriesGame(s, eff, 0) : playSeriesGame(s, 0, eff);
-  rec.plan = plan.k; rec.eff = eff;
+  rec.plan = plan.k; rec.eff = eff; rec.base = base; rec.chance = chance;
 }
 function seriesScore(s) { const youA = s.a.team.user; return [youA ? s.wa : s.wb, youA ? s.wb : s.wa]; }
 function playGame() {
