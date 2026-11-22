@@ -322,6 +322,11 @@
   .s5.open:not(.current):not(.ready) { opacity: .45; }
   .s5.open.ready .ring { border-color: color-mix(in srgb, var(--led) 60%, transparent); color: var(--led); }
   .s5 .ring.pos { font-size: 17px; letter-spacing: .02em; }
+  .poschoice { display: grid; gap: 8px; }
+  .pos-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pos-chip { min-width: 72px; min-height: 52px; border: 1.5px solid var(--line); background: var(--panel-2); border-radius: 12px; padding: 6px 12px; font-family: var(--display); font-weight: 900; font-size: 22px; color: var(--chalk); display: grid; justify-items: center; line-height: 1; gap: 2px; }
+  .pos-chip small { font-family: var(--body); font-size: 10px; font-weight: 600; color: var(--muted); text-transform: none; }
+  .pos-chip[aria-pressed="true"] { border-color: var(--led); background: color-mix(in srgb, var(--led) 14%, var(--panel-2)); color: var(--led); }
   .s5 small i { display: block; font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--faint); text-align: center; }
   .pickhero .big-ring.pos { font-size: 52px; }
   .s5.current .ring {
@@ -446,6 +451,10 @@
   .seed-r .sd { text-align: left !important; color: var(--faint) !important; }
   .seed-r .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .seed-r.you .nm { color: var(--led); font-weight: 700; }
+  .seed-r.cut { opacity: .5; }
+  .zone { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; padding: 12px 0 4px; color: var(--win); }
+  .zone.z-playin { color: var(--led); }
+  .zone.z-out { color: var(--loss); }
 
   /* ---------- playoffs ---------- */
   .vs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: center; background: var(--board); border-radius: 18px; padding: 14px; }
@@ -459,6 +468,8 @@
     display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 12px;
     background: var(--panel); box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
   }
+  .tabs.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stakes p { font-size: 15px; line-height: 1.5; }
   .tabs button { border: 0; background: transparent; min-height: 40px; border-radius: 9px; font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
   .tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--chalk); box-shadow: inset 0 -2px 0 var(--led); }
   .plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -489,7 +500,7 @@
   .game .t { font-size: 14px; font-weight: 600; }
   .game .line { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
   .bracket-wrap { overflow-x: scroll; margin: 0 -16px; padding: 0 16px 6px; }
-  .bracket { display: grid; grid-template-columns: repeat(4, 160px); gap: 12px; }
+  .bracket { display: grid; grid-template-columns: repeat(3, 160px); gap: 12px; }
   .bcol { display: flex; flex-direction: column; justify-content: space-around; gap: 8px; }
   .bcol h3 { font-family: var(--display); font-weight: 800; font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
   .match { background: var(--panel); border-radius: 8px; overflow: hidden; font-size: 13px; }
@@ -521,7 +532,7 @@
     .sheet { max-width: 540px; border-radius: 22px; max-height: 84%; }
     .carousel { grid-auto-columns: calc(50% - 5px); }
     .strip { grid-template-columns: repeat(41, minmax(0, 1fr)); }
-    .bracket { grid-template-columns: repeat(4, minmax(160px, 1fr)); }
+    .bracket { grid-template-columns: repeat(3, minmax(160px, 1fr)); }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -872,6 +883,41 @@ const DIFF_KEYS = ['rookie', 'pro', 'hof'];
 /* A five holds one player at each position; picks can come in any order. */
 const POS_ORDER = ['PG', 'SG', 'SF', 'PF', 'C'];
 const POS_NAME = { PG: 'point guard', SG: 'shooting guard', SF: 'small forward', PF: 'power forward', C: 'center' };
+/* Positions a player could also fill (his listed position always counts). Keyed by name, so it covers every season listed. */
+const ALT_POS = {
+  'Magic Johnson': ['SG', 'SF'], 'Larry Bird': ['PF'], 'Kevin McHale': ['C'], 'Dennis Johnson': ['SG'], 'Danny Ainge': ['PG'],
+  'Bill Walton': ['PF'], 'James Worthy': ['PF'], 'Michael Cooper': ['SF'], 'A.C. Green': ['SF'], 'Julius Erving': ['PF'],
+  'Bobby Jones': ['SF'], 'Joe Dumars': ['PG'], 'Dennis Rodman': ['C', 'SF'], 'Vinnie Johnson': ['PG'], 'John Salley': ['C'],
+  'Michael Jordan': ['SF'], 'Scottie Pippen': ['SG', 'PF'], 'Horace Grant': ['C'], 'Charles Oakley': ['C'], 'Ralph Sampson': ['C'],
+  'Rodney McCray': ['PF'], 'Robert Reid': ['SF'], 'Dominique Wilkins': ['PF'], 'Toni Kukoc': ['PF', 'PG'], 'Ron Harper': ['SG'],
+  'Jeff Hornacek': ['PG'], 'Antoine Carr': ['C'], 'Otis Thorpe': ['C'], 'Robert Horry': ['SF'], 'Mario Elie': ['SG'],
+  'Vernon Maxwell': ['PG'], 'Charles Barkley': ['SF'], 'Dan Majerle': ['SG'], 'Tom Chambers': ['SF'], 'Cedric Ceballos': ['PF'],
+  'Penny Hardaway': ['SG', 'SF'], 'Nick Anderson': ['SF'], 'Dennis Scott': ['SG'], 'Brian Shaw': ['SG'], 'Shawn Kemp': ['C'],
+  'Detlef Schrempf': ['PF'], 'Sam Perkins': ['C'], 'Nate McMillan': ['SG'], 'Anthony Mason': ['SF'], 'Charles Smith': ['C'],
+  'Kobe Bryant': ['SF'], 'Rick Fox': ['SG'], 'Kevin Garnett': ['C'], 'Paul Pierce': ['SG'], 'James Posey': ['PF'], 'Leon Powe': ['C'],
+  'Tim Duncan': ['C'], 'David Robinson': ['PF'], 'Manu Ginobili': ['SF'], 'Stephen Jackson': ['SG'], 'Bruce Bowen': ['SG'],
+  'Malik Rose': ['C'], 'Shawn Marion': ['PF'], 'Boris Diaw': ['C', 'SF'], 'Raja Bell': ['SF'], 'Leandro Barbosa': ['PG'],
+  'Kurt Thomas': ['PF'], 'LeBron James': ['PF', 'PG', 'SG'], 'Anderson Varejao': ['C'], 'Delonte West': ['PG'], 'Ben Wallace': ['PF'],
+  'Rasheed Wallace': ['C'], 'Tayshaun Prince': ['PF'], 'Mehmet Okur': ['PF'], 'Dwyane Wade': ['PG'], 'Antoine Walker': ['SF'],
+  'Udonis Haslem': ['C'], 'Kevin Durant': ['PF'], 'Draymond Green': ['C'], 'Andre Iguodala': ['SG'], 'Klay Thompson': ['SF'],
+  'Shaun Livingston': ['SG'], 'Chris Bosh': ['C'], 'Shane Battier': ['PF'], 'Chris Andersen': ['PF'], 'Kawhi Leonard': ['PF'],
+  'Danny Green': ['SF'], 'Tiago Splitter': ['PF'], 'Kevin Love': ['C'], 'J.R. Smith': ['SF'], 'Tristan Thompson': ['PF'],
+  'Iman Shumpert': ['SF'], 'Richard Jefferson': ['PF'], 'Pascal Siakam': ['SF'], 'Serge Ibaka': ['PF', 'C'], 'Fred VanVleet': ['SG'],
+  'Kyle Lowry': ['SG'], 'Norman Powell': ['SF'], 'James Harden': ['SG', 'PG'], 'Eric Gordon': ['SF'], 'Trevor Ariza': ['PF'],
+  'P.J. Tucker': ['SF', 'C'], 'Gerald Green': ['SF'], 'Luc Mbah a Moute': ['PF'], 'Andre Roberson': ['SF'], 'Jayson Tatum': ['PF'],
+  'Jaylen Brown': ['SF'], 'Kristaps Porzingis': ['PF'], 'Derrick White': ['SG'], 'Jrue Holiday': ['SG'], 'Al Horford': ['PF'],
+  'Sam Hauser': ['PF'], 'Jamal Murray': ['SG'], 'Michael Porter Jr.': ['PF'], 'Aaron Gordon': ['SF'], 'Kentavious Caldwell-Pope': ['SF'],
+  'Bruce Brown': ['SF', 'PG'], 'Jeff Green': ['SF', 'C'], 'Christian Braun': ['SF'], 'Giannis Antetokounmpo': ['C', 'SF'],
+  'Khris Middleton': ['SG'], 'Bobby Portis': ['C'], 'Donte DiVincenzo': ['PG'], 'Pat Connaughton': ['SF'], 'Luka Doncic': ['SG'],
+  'Kyrie Irving': ['PG', 'SG'], 'P.J. Washington': ['C'], 'Derrick Jones Jr.': ['PF'], 'Josh Green': ['SF'], 'Tim Hardaway Jr.': ['SF'],
+  'Shai Gilgeous-Alexander': ['SG'], 'Jalen Williams': ['SG'], 'Chet Holmgren': ['PF'], 'Luguentz Dort': ['SF'], 'Alex Caruso': ['PG'],
+  'Aaron Wiggins': ['SF'], 'Cason Wallace': ['PG'], 'Andrew Wiggins': ['SG'], 'Jordan Poole': ['PG'], 'Otto Porter Jr.': ['PF'],
+  'Kevon Looney': ['PF'], 'Tyrese Maxey': ['PG'], 'Tobias Harris': ['SF'], "De'Anthony Melton": ['PG'], 'Georges Niang': ['SF'],
+};
+function posOf(p) {
+  const list = [p.pos].concat(ALT_POS[p.name] || []);
+  return POS_ORDER.filter(x => list.includes(x));
+}
 const CAP_RESERVE = 76; // every roster has a player at or under 76, so reserving 76 per open pick keeps the draft finishable
 function diffRules(d) {
   const parts = [d.rerolls === 0 ? 'No rerolls' : d.rerolls === 1 ? 'One reroll' : `${d.rerolls} rerolls`];
@@ -1061,7 +1107,8 @@ function buildRealTeam(t, takenNames) {
 }
 
 function buildUserTeam(picks, benchOvr) {
-  const starters = picks.map(r => TEAMS[r.t].players[r.i]).sort((a, b) => POS_ORDER.indexOf(a.pos) - POS_ORDER.indexOf(b.pos));
+  const starters = picks.map(r => { const pl = TEAMS[r.t].players[r.i]; return { ...pl, pos: r.pos || pl.pos }; })
+    .sort((a, b) => POS_ORDER.indexOf(a.pos) - POS_ORDER.indexOf(b.pos));
   const bench = [0, 1, 2].map(i => ({ ...filler(i), ovr: benchOvr, pts: 6, reb: 3, ast: 1.5 }));
   const { rating, chem } = rateLineup(starters, bench);
   return {
@@ -1150,8 +1197,10 @@ function simSeason(user, league) {
   return { games, acc, w, l };
 }
 
-const BRACKET_ORDER = [1, 16, 8, 9, 5, 12, 4, 13, 3, 14, 6, 11, 7, 10, 2, 15];
-const ROUND_NAMES = ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'];
+/* Postseason: seeds 1-6 go straight in, 7-10 play in for the last two spots, 11+ are out. Then an 8-team bracket. */
+const BRACKET_ORDER = [1, 8, 4, 5, 3, 6, 2, 7];
+const ROUND_NAMES = ['First round', 'Semifinals', 'Finals'];
+const DIRECT_SEEDS = 6, PLAYIN_LAST = 10;
 
 function seedField(user, wins, legends, league) {
   const entries = [{ team: user, wins }].concat(legends.map(t => ({ team: t, wins: Math.round(expectedWins(t, league)) })));
@@ -1160,7 +1209,8 @@ function seedField(user, wins, legends, league) {
   return entries;
 }
 
-function newSeries(a, b) { return { a, b, games: [], wa: 0, wb: 0, done: false, winner: null }; }
+function newSeries(a, b, need = 4) { return { a, b, need, games: [], wa: 0, wb: 0, done: false, winner: null }; }
+const seriesLoser = s => (s.winner === s.a ? s.b : s.a);
 const HOME_PATTERN = [0, 0, 1, 1, 0, 1, 0]; // 0 = higher seed (a) at home
 
 function playSeriesGame(s, adjA = 0, adjB = 0) {
@@ -1175,7 +1225,8 @@ function playSeriesGame(s, adjA = 0, adjB = 0) {
   const rec = { n: n + 1, aHome, aPts, bPts, ot: g.ot, aBox, bBox };
   s.games.push(rec);
   aPts > bPts ? s.wa++ : s.wb++;
-  if (s.wa === 4 || s.wb === 4) { s.done = true; s.winner = s.wa === 4 ? s.a : s.b; }
+  const need = s.need || 4;
+  if (s.wa === need || s.wb === need) { s.done = true; s.winner = s.wa === need ? s.a : s.b; }
   return rec;
 }
 function finishSeries(s) { while (!s.done) playSeriesGame(s); }
@@ -1200,7 +1251,8 @@ function saveDiff(k) { try { localStorage.setItem('eraroll.diff', k); } catch (e
 let DIFF_KEY = loadDiff();
 function curDiff() { return DIFFS[(S && S.diffKey) || DIFF_KEY]; }
 
-function picksPlayers() { return (S.draft ? S.draft.picks : []).map(r => TEAMS[r.t].players[r.i]); }
+// Drafted players, each carrying the position slot he was drafted into.
+function picksPlayers() { return (S.draft ? S.draft.picks : []).map(r => { const pl = TEAMS[r.t].players[r.i]; return { ...pl, pos: r.pos || pl.pos }; }); }
 function takenNames() { return new Set(picksPlayers().map(p => p.name)); }
 function capUsed() { return picksPlayers().reduce((a, p) => a + p.ovr, 0); }
 function shortName(n) {
@@ -1235,7 +1287,7 @@ function actionbar(btns) {
 const page = inner => `<main class="content" id="main"><div class="col wrap-x stack">${inner}</div></main>`;
 
 function keyLine(p, origin) {
-  return `${p.pos}${origin ? ` · ${esc(teamShort(TEAMS[p.team]))}` : ''} · ${f1(p.pts)} pts · ${f1(p.reb)} reb · ${f1(p.ast)} ast`;
+  return `${origin ? p.pos : posOf(p).join('/')}${origin ? ` · ${esc(teamShort(TEAMS[p.team]))}` : ''} · ${f1(p.pts)} pts · ${f1(p.reb)} reb · ${f1(p.ast)} ast`;
 }
 function tagsHtml(p, max = 6) {
   const t = playerTags(p).slice(0, max);
@@ -1263,7 +1315,7 @@ function lineupStrip(players) {
   // One slot per position. After a roll, open slots this roster can fill are highlighted.
   const d = S.draft;
   const rolled = d && d.rolled != null && !d.spinning ? TEAMS[d.rolled] : null;
-  const fillable = new Set(rolled ? rolled.players.filter(x => !pickBlock(x)).map(x => x.pos) : []);
+  const fillable = new Set(rolled ? rolled.players.filter(x => !pickBlock(x)).flatMap(openFor) : []);
   const slots = POS_ORDER.map((pos, i) => {
     const p = players.find(x => x.pos === pos);
     if (p) return `<span class="s5 ${UI.popSlot === i ? 'pop' : ''} ${UI.incoming === i ? 'incoming' : ''}" data-slot="${i}" style="--era:${ERA_INFO[p.era].color}"><span class="ring">${p.ovr}</span><small><i>${pos}</i>${esc(shortName(p.name))}</small></span>`;
@@ -1302,9 +1354,9 @@ function capBar() {
     ${picks.length < 5 ? `<div class="lab"><span>Most you can spend on this pick</span><b>${maxPickOvr(D, picks)}</b></div>` : ''}</div>`;
 }
 function openPositions() { const have = picksPlayers().map(p => p.pos); return POS_ORDER.filter(pos => !have.includes(pos)); }
+function openFor(p) { const open = openPositions(); return posOf(p).filter(x => open.includes(x)); }
 function pickBlock(p) {
-  const holder = picksPlayers().find(x => x.pos === p.pos);
-  if (holder) return `Your ${p.pos} spot is taken by ${holder.name}`;
+  if (!openFor(p).length) { const ps = posOf(p); return `${ps.join('/')} ${ps.length > 1 ? 'spots are' : 'spot is'} already filled`; }
   if (takenNames().has(p.name)) return 'Already on your team (another season)';
   const max = maxPickOvr(curDiff(), S.draft.picks);
   if (p.ovr > max) return `Over the cap: ${max} OVR max on this pick`;
@@ -1328,7 +1380,7 @@ function viewHome() {
     ['Roll', 'The board lands on a random era, then a random team from it.'],
     ['Draft', 'One player per position: PG, SG, SF, PF and C, in any order. Build a five that fits: scoring, playmaking, shooters, rim protection, rebounding.'],
     ['Season', 'Your five play 82 games against every team-season in the pool. Your record sets your seed.'],
-    ['Playoffs', 'You plus the three best teams of each era. Before every game, pick a plan that attacks their weakness.'],
+    ['Postseason', 'You against the three best teams of each era. Seeds 1–6 are in, 7–10 go to the play-in, 11 and below go home. Pick a plan before every game.'],
   ];
   return `<main class="home" id="main">
     <section class="floor">${COURT_SVG}
@@ -1482,7 +1534,10 @@ function viewSeason() {
     </div></section>
     <section class="card"><div class="sec">Season averages</div>${avgList(s.acc, S.user.starters)}</section>
     <section class="card"><div class="sec">Playoff seeding <span class="sec-sub">Wins · rating</span></div>
-      <div class="seeds">${S.field.map(e => `<div class="seed-r ${e.team.user ? 'you' : ''}"><span class="sd">${e.seed}</span><span class="nm">${e.team.user ? 'Your Five' : esc(e.team.label)}</span><span>${e.wins}${e.team.user ? '' : '*'}</span><span>${f1(e.team.rating)}</span></div>`).join('')}</div>
+      <div class="seeds">${S.field.map(e => {
+        const zone = e.seed === 1 ? 'Playoffs' : e.seed === DIRECT_SEEDS + 1 ? 'Play-in' : e.seed === PLAYIN_LAST + 1 ? 'Out' : '';
+        return `${zone ? `<div class="zone z-${zone.toLowerCase().replace('-', '')}">${zone}${zone === 'Playoffs' ? ' · seeds 1–6' : zone === 'Play-in' ? ' · seeds 7–10, two spots' : ' · seeds 11+'}</div>` : ''}<div class="seed-r ${e.team.user ? 'you' : ''} ${e.seed > PLAYIN_LAST ? 'cut' : ''}"><span class="sd">${e.seed}</span><span class="nm">${e.team.user ? 'Your Five' : esc(e.team.label)}</span><span>${e.wins}${e.team.user ? '' : '*'}</span><span>${f1(e.team.rating)}</span></div>`;
+      }).join('')}</div>
       <p class="fine" style="margin-top:8px">* Projected wins over 82 games against the same pool.</p></section>`;
   }
   return appbar('Regular season', `${s.shown} of 82 games`, 1) + page(`
@@ -1495,7 +1550,7 @@ function viewSeason() {
     <div class="lastgame" id="lastgame">${last ? lastLine(last) : 'Tip-off…'}</div>
     ${summary}`)
     + actionbar(done
-      ? [{ label: `Enter the playoffs · #${seedRow.seed}`, action: 'playoffs', primary: true, id: 'playoffs-btn' }]
+      ? [{ label: seedRow.seed <= DIRECT_SEEDS ? `Enter the playoffs · #${seedRow.seed}` : seedRow.seed <= PLAYIN_LAST ? `Play-in tournament · #${seedRow.seed}` : `See the result · #${seedRow.seed}`, action: 'postseason', primary: true, id: 'post-btn' }]
       : [{ label: 'Skip to the end', action: 'skip', primary: true, id: 'skip-btn' }]);
 }
 
@@ -1503,10 +1558,10 @@ function entryName(e) { return e.team.user ? 'Your Five' : e.team.short; }
 function bracketView() {
   const P = S.po;
   const cols = [];
-  for (let r = 0; r < 4; r++) {
+  for (let r = 0; r < 3; r++) {
     const series = P.rounds[r];
     let items = '';
-    for (let i = 0; i < (8 >> r); i++) {
+    for (let i = 0; i < (4 >> r); i++) {
       const s = series && series[i];
       if (!s) { items += `<div class="match tbd"><div class="tm"><span class="sd"></span><span class="nm">TBD</span><span></span></div><div class="tm"><span class="sd"></span><span class="nm">TBD</span><span></span></div></div>`; continue; }
       const show = s.done || s.a.team.user || s.b.team.user;
@@ -1526,7 +1581,7 @@ function userSeries() {
 function scoutView(team) {
   const D = curDiff();
   if (D.scout === 'none') return `<div class="card"><div class="sec">Scouting</div><p class="muted">Hall of Fame has no scouting summary. Read their roster below and choose the plan yourself.</p></div>`;
-  const v = vulnerability(team, S.po.norm);
+  const v = vulnerability(team, S.norm);
   const top = TRAITS.reduce((a, t) => v[t.k] > v[a.k] ? t : a, TRAITS[0]);
   const full = D.scout === 'full';
   return `<div class="scout-grid">${TRAITS.map(t => {
@@ -1543,7 +1598,7 @@ function plansView(s, youTeam) {
   const dots = x => { const n = Math.round(x * 4); return '●'.repeat(n) + '○'.repeat(4 - n); };
   return `<div class="plans">${PLANS.map(pl => {
     const r = repeatsFor(s, pl.k);
-    return `<button class="plan" data-action="plan" data-k="${pl.k}" aria-pressed="${P.plan === pl.k}">
+    return `<button class="plan" data-action="plan" data-k="${pl.k}" aria-pressed="${S.plan === pl.k}">
       <b>${pl.name}</b><span>Attacks ${pl.attacks}</span>
       <span>Execution <span class="dots" aria-label="${Math.round(ex[pl.k] * 4)} of 4">${dots(ex[pl.k])}</span></span>
       ${r ? `<span class="warn">Used ${r}× in a row: −${r}.0</span>` : ''}
@@ -1599,9 +1654,9 @@ function viewPlayoffs() {
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-action="tab" data-tab="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('')}</div>
     ${body}`)
     + actionbar(s.done
-      ? [{ label: s.winner.team.user && P.round < 3 ? 'Next round' : 'See the result', action: 'advance', primary: true, id: 'advance-btn' }]
-      : [{ label: 'Sim rest', action: 'simseries', id: 'simseries-btn', disabled: !P.plan },
-         { label: P.plan ? `Play game ${next}` : 'Pick a plan', action: 'game', primary: true, id: 'game-btn', disabled: !P.plan }]);
+      ? [{ label: s.winner.team.user && P.round < 2 ? 'Next round' : 'See the result', action: 'advance', primary: true, id: 'advance-btn' }]
+      : [{ label: 'Sim rest', action: 'simseries', id: 'simseries-btn', disabled: !S.plan },
+         { label: S.plan ? `Play game ${next}` : 'Pick a plan', action: 'game', primary: true, id: 'game-btn', disabled: !S.plan }]);
 }
 
 function viewEnd() {
@@ -1609,15 +1664,15 @@ function viewEnd() {
   return appbar('Run complete', esc(E.finish), 3) + page(`
     <div class="banner ${E.champion ? '' : 'out'}">
       <div class="big">${E.champion ? 'Champions' : esc(E.finish)}</div>
-      <p>${E.champion ? `Your Five beat ${esc(E.beat.join(', '))}. Finals MVP: ${esc(E.fmvp)}.` : `Eliminated by the ${esc(E.by)}, ${E.score}. ${esc(E.champLabel)} won the title.`}</p>
+      <p>${esc(E.line)}</p>
     </div>
     <section class="card"><div class="sec">Run summary</div><div class="facts">
       <div class="fact"><span>Season</span><b>${S.season.w}–${S.season.l}</b></div>
-      <div class="fact"><span>Seed</span><b>#${S.field.find(e => e.team.user).seed}</b></div>
-      <div class="fact"><span>Playoff games</span><b>${E.pw}–${E.pl}</b></div>
+      <div class="fact"><span>Seed</span><b>#${userEntry().seasonSeed ?? userEntry().seed}</b></div>
+      ${E.pw + E.pl ? `<div class="fact"><span>Postseason games</span><b>${E.pw}–${E.pl}</b></div>` : ''}
       <div class="fact"><span>Difficulty</span><b>${esc(curDiff().label)}</b></div>
     </div></section>
-    <section class="card"><div class="sec">Playoff averages</div>${avgList(E.acc, S.user.starters)}</section>
+    ${E.pw + E.pl ? `<section class="card"><div class="sec">Postseason averages</div>${avgList(E.acc, S.user.starters)}</section>` : ''}
     <section class="card"><div class="sec">Regular-season averages</div>${avgList(S.season.acc, S.user.starters)}</section>`)
     + actionbar([{ label: 'Home', action: 'home' }, { label: 'Draft again', action: 'start', primary: true, id: 'again-btn' }]);
 }
@@ -1627,6 +1682,8 @@ function sheetPlayer(i) {
   const t = TEAMS[S.draft.rolled];
   const p = t.players[i];
   const why = pickBlock(p);
+  const elig = openFor(p);
+  const chosen = elig.includes(UI.sheet.pos) ? UI.sheet.pos : (elig.includes(p.pos) ? p.pos : elig[0]);
   const cur = picksPlayers();
   const before = chemistry(cur).rows, after = chemistry(cur.concat([p])).rows;
   const fills = after.filter(r => r.status === 'ok' && (before.find(b => b.label === r.label) || {}).status !== 'ok').map(r => NEED_SHORT[r.label] || r.label);
@@ -1638,13 +1695,14 @@ function sheetPlayer(i) {
   if (bigs >= 4) warns.push('Fourth big: crowds the paint');
   const D = curDiff();
   return `<div class="sh-head" style="--era:${ERA_INFO[p.era].color}"><span class="ovr big" id="sheet-ovr">${p.ovr}</span>
-      <div><h2>${esc(p.name)}</h2><span class="pmeta">${p.pos} · ${esc(teamLabel(t))}</span></div></div>
+      <div><h2>${esc(p.name)}</h2><span class="pmeta">${posOf(p).join(' / ')} · ${esc(teamLabel(t))}</span></div></div>
     ${statGrid(p)}
     ${tagsHtml(p)}
     <div class="fills">${fills.length ? fills.map(f => `<span class="need ok"><i></i>Fills: ${esc(f)}</span>`).join('') : '<span class="need pending"><i></i>Fills no open need</span>'}${warns.map(w => `<span class="need bad"><i></i>${esc(w)}</span>`).join('')}</div>
     ${D.cap ? `<p class="muted">Salary ${p.ovr} OVR · cap room after this pick: ${D.cap - capUsed() - p.ovr}</p>` : ''}
     ${why ? `<p class="why">${esc(why)}</p>` : ''}
-    <button class="abtn primary block" data-action="pick" data-i="${i}" id="draft-btn" ${why ? 'disabled' : ''}>Draft ${esc(shortName(p.name))}</button>`;
+    ${elig.length > 1 ? `<div class="poschoice"><span class="sec" style="margin:0">Play him at</span><div class="pos-chips">${elig.map(x => `<button class="pos-chip" data-action="pickpos" data-pos="${x}" aria-pressed="${x === chosen}">${x}<small>${POS_NAME[x]}</small></button>`).join('')}</div></div>` : ''}
+    <button class="abtn primary block" data-action="pick" data-i="${i}" data-pos="${chosen || ''}" id="draft-btn" ${why ? 'disabled' : ''}>Draft ${esc(shortName(p.name))}${chosen ? ` at ${chosen}` : ''}</button>`;
 }
 function sheetTeam() {
   const players = picksPlayers();
@@ -1680,7 +1738,7 @@ function sheetView() {
 }
 
 /* ======================= RENDER ======================= */
-const VIEWS = { home: viewHome, draft: viewDraft, roster: viewRoster, season: viewSeason, playoffs: viewPlayoffs, end: viewEnd };
+const VIEWS = { home: viewHome, draft: viewDraft, roster: viewRoster, season: viewSeason, playin: viewPlayin, playoffs: viewPlayoffs, end: viewEnd };
 // Lock the page behind a sheet by pinning the body, so the page scrollbar stays put (no sideways jump).
 let lockY = null;
 function setLock(on) {
@@ -1778,7 +1836,7 @@ function roll() {
   const d = S.draft;
   if (d.spinning) return;
   const open = openPositions(), max = maxPickOvr(curDiff(), d.picks), taken = takenNames();
-  const avail = TEAMS.filter(t => !d.usedTeams.includes(t.id) && t.players.some(p => open.includes(p.pos) && p.ovr <= max && !taken.has(p.name)));
+  const avail = TEAMS.filter(t => !d.usedTeams.includes(t.id) && t.players.some(p => posOf(p).some(x => open.includes(x)) && p.ovr <= max && !taken.has(p.name)));
   const era = pick(ERAS.filter(e => avail.some(t => t.era === e)));
   const target = pick(avail.filter(t => t.era === era));
   d.usedTeams.push(target.id);
@@ -1805,18 +1863,20 @@ function roll() {
   timer = setTimeout(tick, 40);
 }
 
-function draftPick(i) {
+function draftPick(i, pos) {
   const d = S.draft;
   if (d.rolled == null) return;
   const p = TEAMS[d.rolled].players[i];
   if (pickBlock(p)) return;
-  d.picks.push({ t: d.rolled, i });
+  const elig = openFor(p);
+  if (!elig.includes(pos)) pos = elig.includes(p.pos) ? p.pos : elig[0];
+  d.picks.push({ t: d.rolled, i, pos });
   d.rolled = null;
   const srcEl = document.getElementById('sheet-ovr');
   const from = srcEl ? srcEl.getBoundingClientRect() : null;
   UI.sheet = null;
   const n = d.picks.length;
-  const slot = POS_ORDER.indexOf(p.pos);
+  const slot = POS_ORDER.indexOf(pos);
   UI.incoming = slot;   // the slot is filled but hidden until the badge lands in it
   render();
   flyToSlot(from, slot, p, () => {
@@ -1884,28 +1944,163 @@ function animateSeason() {
 }
 function skipSeason() { stopTimer(); S.season.shown = 82; render(); }
 
-function startPlayoffs() {
+function userEntry() { return S.field.find(e => e.team.user); }
+function seedEntry(n) { return S.field.find(e => (e.seasonSeed ?? e.seed) === n); }
+
+// Called from the season screen: sets up the play-in or the bracket depending on the user's seed.
+function startPostseason() {
   const boost = curDiff().boost;
-  S.field.forEach(e => { if (!e.team.user) { e.base = e.team.rating; e.team = { ...e.team, rating: e.base + boost }; } });
+  S.field.forEach(e => {
+    e.seasonSeed = e.seed;
+    if (!e.team.user) { e.base = e.team.rating; e.team = { ...e.team, rating: e.base + boost }; }
+  });
+  S.norm = traitNorm(S.field.filter(e => !e.team.user).map(e => e.team));
+  S.plan = null;
+  const A = newSeries(seedEntry(7), seedEntry(8), 1), B = newSeries(seedEntry(9), seedEntry(10), 1);
+  S.pi = { A, B, C: null, cur: null };
+  const seed = userEntry().seed;
+  if (seed <= DIRECT_SEEDS) {
+    finishSeries(A); finishSeries(B);
+    S.pi.C = newSeries(seriesLoser(A), B.winner, 1); finishSeries(S.pi.C);
+    startPlayoffs(`Seed #${seed}`);
+  } else if (seed <= PLAYIN_LAST) {
+    S.pi.cur = seed <= 8 ? 'A' : 'B';
+    finishSeries(S.pi.cur === 'A' ? B : A);
+    UI.tab = 'plan';
+    S.screen = 'playin';
+    playTransition({ kicker: `Seed #${seed}`, title: 'Play-in', sub: seed <= 8 ? 'Win once to be the 7 seed, or win the last-chance game for the 8 seed.' : 'Win twice to reach the playoffs. One loss ends your season.' }, render);
+  } else {
+    finishSeries(A); finishSeries(B);
+    S.pi.C = newSeries(seriesLoser(A), B.winner, 1); finishSeries(S.pi.C);
+    const champ = simulateBracket();
+    S.end = { champion: false, finish: 'Missed the playoffs', cardNote: `Seed #${seed}: only seeds 1–10 reach the postseason`,
+      line: `You finished as the ${seed} seed. Only the top 10 reach the postseason. The ${champ} won the title.`, ...userPlayoffAcc() };
+    finalizeRun(-2);
+  }
+}
+
+// The 8 playoff entries: seeds 1-6, the 7/8 game winner as the 7 seed, the last-chance winner as the 8 seed.
+function playoffEntries() {
+  const list = [1, 2, 3, 4, 5, 6].map(seedEntry);
+  const e7 = S.pi.A.winner, e8 = S.pi.C.winner;
+  e7.seed = 7; e8.seed = 8;
+  return list.concat([e7, e8]);
+}
+function firstRound(entries) {
   const bySeed = {};
-  S.field.forEach(e => bySeed[e.seed] = e);
+  entries.forEach(e => bySeed[e.seed] = e);
   const slots = BRACKET_ORDER.map(sd => bySeed[sd]);
   const r0 = [];
-  for (let i = 0; i < 16; i += 2) r0.push(newSeries(slots[i], slots[i + 1]));
-  S.po = { round: 0, rounds: [r0], plan: null, norm: traitNorm(S.field.filter(e => !e.team.user).map(e => e.team)) };
+  for (let i = 0; i < 8; i += 2) r0.push(newSeries(slots[i], slots[i + 1]));
+  return r0;
+}
+// Plays out every remaining series without the user; returns the champion's label.
+function simulateBracket() {
+  const rounds = S.po ? S.po.rounds : [firstRound(playoffEntries())];
+  let r = rounds.length - 1;
+  rounds[r].forEach(finishSeries);
+  while (r < 2) { const next = nextRound(rounds[r]); next.forEach(finishSeries); rounds.push(next); r++; }
+  if (!S.po) S.po = { round: 0, rounds };
+  return rounds[2][0].winner.team.label;
+}
+
+function startPlayoffs(kicker) {
+  S.po = { round: 0, rounds: [firstRound(playoffEntries())] };
+  S.plan = null;
   UI.tab = 'plan';
   S.screen = 'playoffs';
   const s = userSeries(), you = s.a.team.user ? s.a : s.b, opp = s.a.team.user ? s.b : s.a;
-  playTransition({ kicker: 'The gauntlet', title: 'Playoffs', sub: `Seed #${you.seed} · Round of 16 vs ${opp.team.label}` }, render);
+  playTransition({ kicker, title: 'Playoffs', sub: `Seed #${you.seed} · First round vs ${opp.team.label}` }, render);
+}
+
+/* ---------- play-in ---------- */
+function piSeries() { return S.pi[S.pi.cur]; }
+function piOutcome(s) {
+  // What the finished user game means: 'in7', 'in8', 'lastChance' or 'out'.
+  const won = s.winner.team.user, cur = S.pi.cur;
+  if (cur === 'A') return won ? 'in7' : 'lastChance';
+  if (cur === 'B') return won ? 'lastChance' : 'out';
+  return won ? 'in8' : 'out';
+}
+function piGame() {
+  const s = piSeries(); if (!s || s.done || !S.plan) return;
+  playUserGame(s);
+  UI.tab = 'plan';
+  UI.gameAnim = s.winner.team.user ? 'w' : 'l';
+  render();
+}
+function piNext() {
+  const s = piSeries(); if (!s || !s.done) return;
+  const out = piOutcome(s), pi = S.pi;
+  if (out === 'lastChance') {
+    pi.C = pi.cur === 'A' ? newSeries(s.b.team.user ? s.b : s.a, pi.B.winner, 1) : newSeries(seriesLoser(pi.A), s.winner, 1);
+    if (pi.C.b.team.user && pi.C.b.seasonSeed < pi.C.a.seasonSeed) pi.C = newSeries(pi.C.b, pi.C.a, 1); // better seed hosts
+    pi.cur = 'C';
+    S.plan = null;
+    UI.tab = 'plan';
+    UI.lastScreen = null;
+    render();
+    return;
+  }
+  if (out === 'in7') { pi.C = newSeries(seriesLoser(pi.A), pi.B.winner, 1); finishSeries(pi.C); }
+  if (out === 'in7' || out === 'in8') { startPlayoffs(out === 'in7' ? 'Won the 7 vs 8 game' : 'Survived the play-in'); return; }
+  if (!pi.C) { pi.C = newSeries(seriesLoser(pi.A), pi.B.winner, 1); finishSeries(pi.C); }
+  const opp = s.a.team.user ? s.b : s.a, g = s.games[0], youA = s.a.team.user;
+  const score = `${youA ? g.aPts : g.bPts}–${youA ? g.bPts : g.aPts}`;
+  const champ = simulateBracket();
+  S.end = { champion: false, finish: 'Lost in the play-in', cardNote: `Lost ${score} to the ${opp.team.label}`,
+    line: `Lost ${score} to the ${opp.team.label} in the play-in. The ${champ} won the title.`, ...userPlayoffAcc() };
+  finalizeRun(-1);
+}
+
+function viewPlayin() {
+  const pi = S.pi, s = piSeries();
+  const youA = s.a.team.user, you = youA ? s.a : s.b, opp = youA ? s.b : s.a;
+  const names = { A: '7 vs 8 game', B: '9 vs 10 game', C: 'Last-chance game' };
+  const stakes = { A: ['Win: you are the 7 seed.', 'Lose: one more game for the 8 seed.'],
+                   B: ['Win: one more game for the 8 seed.', 'Lose: your season is over.'],
+                   C: ['Win: you are the 8 seed.', 'Lose: your season is over.'] }[pi.cur];
+  const tab = UI.tab === 'scout' ? 'scout' : 'plan';
+  const g = s.games[0];
+  const yp = g ? (youA ? g.aPts : g.bPts) : null, op = g ? (youA ? g.bPts : g.aPts) : null;
+  let body;
+  if (tab === 'plan') {
+    if (s.done) {
+      const r = gameLine(s, g), out = piOutcome(s);
+      const msg = { in7: 'You are the 7 seed.', in8: 'You are the 8 seed.', lastChance: 'One more game decides the 8 seed.', out: 'Your season is over.' }[out];
+      body = `<div class="lastres ${UI.gameAnim ? 'stamp' : ''}"><span class="res ${r.won ? 'W' : 'L'}">${r.won ? 'W' : 'L'}</span><span class="d"><b>${r.score}</b> ${r.where}${r.plan ? ` · ${esc(r.plan)}` : ''}<br>${esc(r.top)}</span></div>
+        <div class="card"><div class="sec">${r.won ? 'Win' : 'Loss'}</div><p class="muted">${msg}</p></div>`;
+    } else {
+      body = `<div class="card stakes"><div class="sec">${names[pi.cur]} · one game</div><p><b>${stakes[0]}</b><br><span class="muted">${stakes[1]}</span></p></div>
+        <div class="sec">Game plan</div>${plansView(s, you.team)}`;
+    }
+  } else {
+    body = `${scoutView(opp.team)}<div class="sec">${esc(opp.team.label)}</div><div class="list">${opp.team.starters.concat(opp.team.bench).filter(p => !p.generic).map(p => playerRow(p)).join('')}</div>`;
+  }
+  let actions;
+  if (s.done) {
+    const out = piOutcome(s);
+    actions = [{ label: { in7: 'Enter the playoffs · #7', in8: 'Enter the playoffs · #8', lastChance: 'Last-chance game', out: 'See the result' }[out], action: 'pi-next', primary: true, id: 'pi-next-btn' }];
+  } else {
+    actions = [{ label: S.plan ? 'Play the game' : 'Pick a plan', action: 'pi-game', primary: true, id: 'game-btn', disabled: !S.plan }];
+  }
+  return appbar('Play-in', `${names[pi.cur]} vs ${esc(opp.team.label)}`, 2) + page(`
+    <div class="vs ${UI.gameAnim ? 'hit-' + UI.gameAnim : ''}">
+      <div class="side"><div class="tn" style="color:var(--led)">Your Five</div><div class="sub">Seed ${you.seasonSeed} · ${f1(you.team.rating)}</div></div>
+      <div class="sc ${UI.gameAnim ? 'flip' : ''}">${g ? `${yp}–${op}` : 'VS'}</div>
+      <div class="side r"><div class="tn">${esc(opp.team.short)}</div><div class="sub">Seed ${opp.seasonSeed} · ${f1(opp.team.rating)}</div></div>
+    </div>
+    <div class="tabs two" role="tablist">${[['plan', 'Plan'], ['scout', 'Scout']].map(([k, l]) => `<button role="tab" data-action="tab" data-tab="${k}" aria-selected="${tab === k}">${l}</button>`).join('')}</div>
+    ${body}`) + actionbar(actions);
 }
 
 function playUserGame(s) {
   const P = S.po;
-  const plan = PLANS.find(x => x.k === P.plan);
+  const plan = PLANS.find(x => x.k === S.plan);
   if (!plan || s.done) return;
   const youA = s.a.team.user;
   const you = youA ? s.a : s.b, opp = youA ? s.b : s.a;
-  const eff = planEffect(plan, vulnerability(opp.team, P.norm), execution(you.team), repeatsFor(s, plan.k));
+  const eff = planEffect(plan, vulnerability(opp.team, S.norm), execution(you.team), repeatsFor(s, plan.k));
   const rec = youA ? playSeriesGame(s, eff, 0) : playSeriesGame(s, 0, eff);
   rec.plan = plan.k; rec.eff = eff;
 }
@@ -1932,7 +2127,8 @@ function userPlayoffAcc() {
   const acc = {};
   S.user.starters.forEach(p => acc[p.name] = newAcc());
   let pw = 0, pl = 0;
-  S.po.rounds.forEach(rs => rs.forEach(s => {
+  const all = [S.pi && S.pi.A, S.pi && S.pi.B, S.pi && S.pi.C].filter(Boolean).map(x => [x]).concat(S.po ? S.po.rounds : []);
+  all.forEach(rs => rs.forEach(s => {
     const youA = s.a.team.user, youB = s.b.team.user;
     if (!youA && !youB) return;
     s.games.forEach(g => {
@@ -1958,31 +2154,29 @@ function advance() {
   rs.forEach(finishSeries);
   const us = rs.find(s => s.a.team.user || s.b.team.user);
   if (!us.winner.team.user) {
-    let r = P.round;
-    while (r < 3) { const next = nextRound(P.rounds[r]); next.forEach(finishSeries); P.rounds.push(next); r++; }
-    const champE = P.rounds[3][0].winner;
+    const champ = simulateBracket();
     const yw = us.a.team.user ? us.wa : us.wb, ow = us.a.team.user ? us.wb : us.wa;
-    const { acc, pw, pl } = userPlayoffAcc();
-    const finish = ['Out in the Round of 16', 'Out in the Quarterfinals', 'Out in the Semifinals', 'Lost the Finals'][P.round];
-    S.end = { champion: false, finish, by: us.winner.team.label, score: `${ow}–${yw}`, champLabel: champE.team.label, acc, pw, pl };
+    const finish = ['Out in the first round', 'Out in the semifinals', 'Lost the Finals'][P.round];
+    S.end = { champion: false, finish, cardNote: `Lost ${yw}–${ow} to the ${us.winner.team.label}`,
+      line: `Lost ${yw}–${ow} to the ${us.winner.team.label}. The ${champ} won the title.`, ...userPlayoffAcc() };
     finalizeRun(P.round);
     return;
   }
-  if (P.round === 3) {
+  if (P.round === 2) {
     const { acc, pw, pl } = userPlayoffAcc();
     const fmvp = S.user.starters.slice().sort((a, b) => acc[b.name].gs - acc[a.name].gs)[0];
     const beat = P.rounds.map(rs2 => { const s = rs2.find(x => x.a.team.user || x.b.team.user); return (s.a.team.user ? s.b : s.a).team.short; });
-    S.end = { champion: true, finish: 'Champions', beat, fmvp: fmvp.name, acc, pw, pl };
-    finalizeRun(4);
+    S.end = { champion: true, finish: 'Champions', beat, fmvp: fmvp.name, line: `Your Five beat ${beat.join(', ')}. Finals MVP: ${fmvp.name}.`, acc, pw, pl };
+    finalizeRun(3);
     return;
   }
   P.rounds.push(nextRound(rs));
   P.round++;
-  P.plan = null;
+  S.plan = null;
   UI.tab = 'plan';
   UI.lastScreen = null; // replay the screen transition for the new round
   const s = userSeries(), opp = s.a.team.user ? s.b : s.a;
-  playTransition({ kicker: `Won ${us.a.team.user ? us.wa : us.wb}–${us.a.team.user ? us.wb : us.wa}`, title: P.round === 3 ? 'The Finals' : ROUND_NAMES[P.round], sub: `vs ${opp.team.label} · seed ${opp.seed}` }, render);
+  playTransition({ kicker: `Won ${us.a.team.user ? us.wa : us.wb}–${us.a.team.user ? us.wb : us.wa}`, title: P.round === 2 ? 'The Finals' : ROUND_NAMES[P.round], sub: `vs ${opp.team.label} · seed ${opp.seed}` }, render);
 }
 function finalizeRun(level) {
   const five = S.user.starters.map(p => shortName(p.name)).join(', ');
@@ -1992,7 +2186,7 @@ function finalizeRun(level) {
   const E = S.end;
   playTransition(E.champion
     ? { kicker: 'Your Five', title: 'Champions', sub: `Finals MVP: ${E.fmvp}`, hold: 1300 }
-    : { kicker: 'Season over', title: 'Eliminated', sub: `${E.finish} · lost ${E.score.split('–').reverse().join('–')} to the ${E.by}`, tone: 'loss', hold: 1000 }, render);
+    : { kicker: 'Season over', title: 'Eliminated', sub: E.finish, note: E.cardNote, tone: 'loss', hold: 1000 }, render);
 }
 
 function applyDiff(k) {
@@ -2011,7 +2205,7 @@ function applyDiff(k) {
     if (S.field) S.field.forEach(e => { if (e.team.user) e.team = nu; });
     S.user = nu;
   }
-  if (S.po) S.field.forEach(e => { if (!e.team.user && e.base != null) e.team = { ...e.team, rating: e.base + DIFFS[k].boost }; });
+  if (S.pi || S.po) S.field.forEach(e => { if (!e.team.user && e.base != null) e.team = { ...e.team, rating: e.base + DIFFS[k].boost }; });
   toast(`Difficulty: ${DIFFS[k].label}`);
 }
 
@@ -2030,12 +2224,15 @@ document.addEventListener('click', e => {
   else if (a === 'setdiff') applyDiff(b.dataset.k);
   else if (a === 'roll') roll();
   else if (a === 'reroll') { if (S.draft.rerolls > 0 && S.draft.rolled != null) { S.draft.rerolls--; S.draft.rolled = null; roll(); } }
-  else if (a === 'pick') draftPick(+b.dataset.i);
+  else if (a === 'pick') draftPick(+b.dataset.i, b.dataset.pos);
+  else if (a === 'pickpos') { UI.sheet.pos = b.dataset.pos; render(); }
   else if (a === 'season') startSeason();
   else if (a === 'skip') skipSeason();
-  else if (a === 'playoffs') startPlayoffs();
+  else if (a === 'postseason') startPostseason();
+  else if (a === 'pi-game') piGame();
+  else if (a === 'pi-next') piNext();
   else if (a === 'tab') { UI.tab = b.dataset.tab; render(); }
-  else if (a === 'plan') { S.po.plan = b.dataset.k; render(); }
+  else if (a === 'plan') { S.plan = b.dataset.k; render(); }
   else if (a === 'game') playGame();
   else if (a === 'simseries') simSeries();
   else if (a === 'advance') advance();
