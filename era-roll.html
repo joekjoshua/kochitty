@@ -311,7 +311,7 @@
 
   /* lineup strip */
   .strip5 { display: grid; gap: 10px; width: 100%; border: 0; text-align: left; color: var(--chalk); }
-  .strip5:active { background: var(--panel-2); }
+
   .strip5-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-family: var(--display); font-weight: 800; font-size: 17px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .strip5-head b { color: var(--led); font-family: var(--mono); font-weight: 600; font-size: 14px; letter-spacing: 0; }
   .strip5-head .more { font-family: var(--body); font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--faint); font-weight: 600; margin-left: 8px; }
@@ -319,7 +319,18 @@
   .s5 { display: grid; justify-items: center; gap: 5px; min-width: 0; }
   .s5 .ring { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: var(--board); color: var(--led); font-family: var(--display); font-weight: 900; font-size: 22px; box-shadow: 0 0 0 2px var(--era, var(--line)); }
   .s5.open .ring { background: transparent; color: var(--faint); box-shadow: none; border: 1.5px dashed var(--faint); font-size: 18px; }
-  .s5.open:not(.current):not(.ready) { opacity: .45; }
+  .s5.open:not(.current):not(.ready):not(.target) { opacity: .45; }
+  button.s5 { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+  button.s5:active .ring { transform: scale(.94); }
+  .s5.moving .ring { transform: translateY(-4px) scale(1.08); box-shadow: 0 0 0 3px var(--led), 0 10px 22px rgba(0, 0, 0, .5); }
+  .s5.target .ring { border: 2px dashed var(--led); box-shadow: 0 0 0 2px var(--era, transparent); animation: slotPulse 1.4s ease-in-out infinite; }
+  .s5.open.target .ring { color: var(--led); }
+  .s5.blocked { opacity: .3; }
+  .s5 small em { font-style: normal; color: var(--led); font-weight: 700; }
+  .strip5-hint { font-size: 12px; color: var(--faint); text-align: center; }
+  .strip5.is-moving .strip5-hint { color: var(--led); }
+  .more-btn { border: 0; background: transparent; color: inherit; padding: 4px 0 4px 8px; font: inherit; display: inline-flex; align-items: baseline; gap: 0; cursor: pointer; }
+  .dock.compact .strip5-hint { display: none; }
   .s5.open.ready .ring { border-color: color-mix(in srgb, var(--led) 60%, transparent); color: var(--led); }
   .s5 .ring.pos { font-size: 17px; letter-spacing: .02em; }
   .poschoice { display: grid; gap: 8px; }
@@ -1247,7 +1258,7 @@ function finishSeries(s) { while (!s.done) playSeriesGame(s); }
 
 /* ======================= STATE ======================= */
 let S = { screen: 'home' };
-const UI = { dockCompact: false, incoming: null, gameAnim: null, sheet: null, tab: 'plan', homeEra: '1990s', toast: '', toastId: 0, lastScreen: null, popSlot: null, landed: false };
+const UI = { moveFrom: null, dockCompact: false, incoming: null, gameAnim: null, sheet: null, tab: 'plan', homeEra: '1990s', toast: '', toastId: 0, lastScreen: null, popSlot: null, landed: false };
 const reduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1325,21 +1336,64 @@ function lineupRating(players) {
   if (players.length === 5) return rateLineup(players, [0, 1, 2].map(() => ({ ovr: D.bench }))).rating;
   return 0.8 * avg(players.map(p => p.ovr)) + 0.2 * D.bench;
 }
+// Where the player in slot `from` could go: { slotIndex: 'move' | 'swap' | reason-it-cannot }.
+function moveTargets(from) {
+  const players = picksPlayers(), src = players.find(x => x.pos === POS_ORDER[from]);
+  const out = {};
+  if (!src) return out;
+  POS_ORDER.forEach((pos, i) => {
+    if (i === from) return;
+    const other = players.find(x => x.pos === pos);
+    if (!posOf(src).includes(pos)) out[i] = `${shortName(src.name)} can't play ${pos}`;
+    else if (!other) out[i] = 'move';
+    else if (!posOf(other).includes(POS_ORDER[from])) out[i] = `${shortName(other.name)} can't play ${POS_ORDER[from]}`;
+    else out[i] = 'swap';
+  });
+  return out;
+}
 function lineupStrip(players) {
-  // One slot per position. After a roll, open slots this roster can fill are highlighted.
+  // One slot per position. Tap a rating to pick a player up, then tap a highlighted slot to move or swap him.
+  // After a roll (and when nothing is picked up), open slots this roster can fill are highlighted.
   const d = S.draft;
-  const rolled = d && d.rolled != null && !d.spinning ? TEAMS[d.rolled] : null;
+  const moving = UI.moveFrom != null && players.some(x => x.pos === POS_ORDER[UI.moveFrom]);
+  const targets = moving ? moveTargets(UI.moveFrom) : {};
+  const rolled = !moving && d && d.rolled != null && !d.spinning ? TEAMS[d.rolled] : null;
   const fillable = new Set(rolled ? rolled.players.filter(x => !pickBlock(x)).flatMap(openFor) : []);
+  const pops = [].concat(UI.popSlot ?? []);
   const slots = POS_ORDER.map((pos, i) => {
     const p = players.find(x => x.pos === pos);
-    if (p) return `<span class="s5 ${UI.popSlot === i ? 'pop' : ''} ${UI.incoming === i ? 'incoming' : ''}" data-slot="${i}" style="--era:${ERA_INFO[p.era].color}"><span class="ring">${p.ovr}</span><small><i>${pos}</i>${esc(shortName(p.name))}</small></span>`;
+    const tgt = targets[i];
+    const ok = tgt === 'move' || tgt === 'swap';
+    const moveCls = moving ? (i === UI.moveFrom ? 'moving' : ok ? 'target' : 'blocked') : '';
+    const label = moving && i !== UI.moveFrom ? (ok ? (tgt === 'swap' ? 'Swap' : 'Move here') : '') : '';
+    const title = moving && !ok && i !== UI.moveFrom ? tgt : '';
+    if (p) return `<button class="s5 ${pops.includes(i) ? 'pop' : ''} ${UI.incoming === i ? 'incoming' : ''} ${moveCls}" data-action="slot" data-i="${i}" data-slot="${i}" style="--era:${ERA_INFO[p.era].color}" ${title ? `title="${esc(title)}"` : ''} aria-label="${esc(p.name)}, ${pos}${moving && i === UI.moveFrom ? ', picked up' : ''}"><span class="ring">${p.ovr}</span><small><i>${pos}</i>${label ? `<em>${label}</em>` : esc(shortName(p.name))}</small></button>`;
+    if (moving) return `<button class="s5 open ${moveCls}" data-action="slot" data-i="${i}" data-slot="${i}" ${title ? `title="${esc(title)}"` : ''}><span class="ring pos">${pos}</span><small>${label ? `<em>${label}</em>` : 'Open'}</small></button>`;
     if (fillable.has(pos)) return `<span class="s5 open current" data-slot="${i}"><span class="ring pos">${pos}</span><small>On roster</small></span>`;
     return `<span class="s5 open ${rolled ? '' : 'ready'}" data-slot="${i}"><span class="ring pos">${pos}</span><small>Open</small></span>`;
   }).join('');
-  return `<button class="card strip5" data-action="sheet" data-sheet="team" aria-label="Show team details">
-    <span class="strip5-head"><span>Your five</span><span>${players.length ? `<b>${f1(lineupRating(players))}</b>` : ''}<span class="more">Details ›</span></span></span>
-    <span class="s5row">${slots}</span></button>`;
+  const hint = moving
+    ? `Tap a highlighted slot to move ${esc(shortName(players.find(x => x.pos === POS_ORDER[UI.moveFrom]).name))} · tap him again to cancel`
+    : players.length ? 'Tap a rating to change a player’s position' : '';
+  return `<div class="card strip5 ${moving ? 'is-moving' : ''}">
+    <span class="strip5-head"><span>Your five</span><button class="more-btn" data-action="sheet" data-sheet="team">${players.length ? `<b>${f1(lineupRating(players))}</b>` : ''}<span class="more">Details ›</span></button></span>
+    <span class="s5row">${slots}</span>
+    ${hint ? `<span class="strip5-hint">${hint}</span>` : ''}</div>`;
 }
+function moveSlot(from, to) {
+  const t = moveTargets(from)[to];
+  if (t !== 'move' && t !== 'swap') { if (t) toast(t); return; }
+  const picks = S.draft.picks;
+  const pa = picks.find(r => (r.pos || TEAMS[r.t].players[r.i].pos) === POS_ORDER[from]);
+  const pb = picks.find(r => (r.pos || TEAMS[r.t].players[r.i].pos) === POS_ORDER[to]);
+  pa.pos = POS_ORDER[to];
+  if (pb) pb.pos = POS_ORDER[from];
+  UI.moveFrom = null;
+  UI.popSlot = pb ? [to, from] : [to];
+  const na = shortName(TEAMS[pa.t].players[pa.i].name);
+  toast(pb ? `Swapped ${na} (${POS_ORDER[to]}) and ${shortName(TEAMS[pb.t].players[pb.i].name)} (${POS_ORDER[from]})` : `Moved ${na} to ${POS_ORDER[to]}`);
+}
+
 const NEED_SHORT = {
   'Go-to scoring': 'Scorer', 'Playmaking': 'Playmaker', 'Spacing': 'Shooters', 'Rim protection': 'Rim protector',
   'Rebounding': 'Boards', 'Perimeter defense': 'Stopper', 'Size': 'Size', 'Spacing inside': 'Paint', 'Era chemistry': 'One era', 'Complete team': 'Complete',
@@ -1507,6 +1561,7 @@ function viewRoster() {
       <div><span class="k">TEAM RATING</span><span class="big">${f1(user.rating)}</span></div>
       <div><span class="k">PROJECTED</span><span class="big">${proj}–${82 - proj}</span></div>
     </section>
+    ${lineupStrip(players)}
     <section><div class="sec">Starting five</div><div class="list">${players.map(p => playerRow(p, { origin: true })).join('')}</div></section>
     <section class="card"><div class="sec">Team fit</div>${fitList(user.chem.rows, true)}
       <p class="fine" style="margin-top:10px">Bench: three reserves rated ${D.bench}. Starters count 80%, bench 20%, plus the fit adjustments above.</p></section>`)
@@ -1797,7 +1852,7 @@ function render() {
   setLock(!!UI.sheet);
   applyTheme();
   UI.popSlot = null; UI.landed = false; UI.gameAnim = null; // one-shot animations play on a single render
-  if (changed) UI.dockCompact = false;
+  if (changed) { UI.dockCompact = false; UI.moveFrom = null; }
   updateDock();
   if (changed) {
     window.scrollTo(0, 0);
@@ -2248,6 +2303,12 @@ document.addEventListener('click', e => {
   else if (a === 'reroll') { if (S.draft.rerolls > 0 && S.draft.rolled != null) { S.draft.rerolls--; S.draft.rolled = null; roll(); } }
   else if (a === 'pick') draftPick(+b.dataset.i, b.dataset.pos);
   else if (a === 'pickpos') { UI.sheet.pos = b.dataset.pos; render(); }
+  else if (a === 'slot') {
+    const i = +b.dataset.i;
+    if (UI.moveFrom == null) { if (picksPlayers().some(x => x.pos === POS_ORDER[i])) { UI.moveFrom = i; render(); } }
+    else if (UI.moveFrom === i) { UI.moveFrom = null; render(); }
+    else moveSlot(UI.moveFrom, i);
+  }
   else if (a === 'season') startSeason();
   else if (a === 'skip') skipSeason();
   else if (a === 'postseason') startPostseason();
@@ -2261,6 +2322,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && UI.sheet) closeSheet();
+  else if (e.key === 'Escape' && UI.moveFrom != null) { UI.moveFrom = null; render(); }
 });
 
 /* ======================= BOOT ======================= */
