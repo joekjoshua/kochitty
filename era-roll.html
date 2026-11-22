@@ -316,6 +316,21 @@
   .lv-speed button { border: 0; background: transparent; min-width: 48px; min-height: 44px; border-radius: 9px; font-family: var(--display); font-weight: 800; font-size: 17px; color: var(--muted); }
   .lv-speed button[aria-pressed="true"] { background: var(--panel-2); color: var(--chalk); box-shadow: inset 0 -2px 0 var(--led); }
 
+  /* team badges */
+  .tb { flex: none; display: inline-grid; place-items: center; width: var(--s); height: var(--s); border-radius: 50%; vertical-align: middle;
+    background: color-mix(in srgb, var(--tc) 20%, var(--board)); color: var(--tc); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tc) 55%, transparent); }
+  .tb svg { width: 62%; height: 62%; }
+  .named { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+  .named > :last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .reel-team { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .reel-team .v { min-width: 0; }
+  .vs .tn { display: flex; align-items: center; gap: 8px; }
+  .vs .side.r .tn { justify-content: flex-end; }
+  .match .tm { grid-template-columns: 20px 18px minmax(0, 1fr) auto; }
+  .seed-r { grid-template-columns: 26px 22px minmax(0, 1fr) 40px 44px; }
+  .bn-wrap { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  @media (max-width: 440px) { .bt.opp .bn { display: none; } }
+
   /* pre-roll pick card and budget */
   .pickhero {
     display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center;
@@ -1613,6 +1628,39 @@ function shortName(n) {
 }
 
 /* ======================= PIECES ======================= */
+// Original mascot glyphs drawn for each nickname (not the franchises' real logos). 24x24, currentColor; var(--board) cuts holes.
+const S2 = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"';
+const GLYPHS = {
+  Celtics: `<path d="M12 11.2C9 8.6 7.9 5.2 9.6 3.6c1-.9 2.2-.4 2.4.9.2-1.3 1.4-1.8 2.4-.9 1.7 1.6.6 5-2.4 7.6z"/><path d="M12 11.2C9 8.6 7.9 5.2 9.6 3.6c1-.9 2.2-.4 2.4.9.2-1.3 1.4-1.8 2.4-.9 1.7 1.6.6 5-2.4 7.6z" transform="rotate(115 12 11.4)"/><path d="M12 11.2C9 8.6 7.9 5.2 9.6 3.6c1-.9 2.2-.4 2.4.9.2-1.3 1.4-1.8 2.4-.9 1.7 1.6.6 5-2.4 7.6z" transform="rotate(-115 12 11.4)"/><path d="M12 12.5c.4 3.5 1.6 6.4 3.6 8.8" ${S2} stroke-width="2"/>`,
+  Lakers: `<path d="M2 9c3-3 5-3 8 0s5 3 8 0 4-2 4-2M2 15.5c3-3 5-3 8 0s5 3 8 0 4-2 4-2" ${S2} stroke-width="2.4"/>`,
+  '76ers': `<path d="M12 2.5a1.6 1.6 0 0 1 1.6 1.6v.7A6.2 6.2 0 0 1 18 11v4l2 2.6H4L6 15v-4a6.2 6.2 0 0 1 4.4-6.2v-.7A1.6 1.6 0 0 1 12 2.5z"/><circle cx="12" cy="20" r="2.1"/>`,
+  Pistons: `<rect x="6" y="2.5" width="12" height="8.5" rx="1.6"/><rect x="6" y="5" width="12" height="1.3" fill="var(--board)"/><rect x="6" y="7.6" width="12" height="1.3" fill="var(--board)"/><rect x="10.6" y="11" width="2.8" height="7"/><circle cx="12" cy="19.5" r="2.6"/>`,
+  Bulls: `<path d="M2.5 4c.4 4.2 3.2 6.3 6.5 6.4L8 15l4 5.5 4-5.5-1-4.6c3.3-.1 6.1-2.2 6.5-6.4-2 2-4.3 3-6.5 2.6-1-.6-2-.8-3-.8s-2 .2-3 .8C6.8 7 4.5 6 2.5 4z"/><circle cx="10" cy="13" r="1" fill="var(--board)"/><circle cx="14" cy="13" r="1" fill="var(--board)"/>`,
+  Rockets: `<path d="M12 1.8c3 2.5 4.6 6.1 4.6 10.2l2.4 3V19l-3-1.5H8L5 19v-4l2.4-3C7.4 7.9 9 4.3 12 1.8z"/><circle cx="12" cy="9.6" r="1.9" fill="var(--board)"/><path d="M10 18.5l2 3.7 2-3.7z"/>`,
+  Hawks: `<path d="M2.5 14c4-7.5 10.5-9.8 19-8.6-3.3 1-5.4 3.1-6.4 5.4l4.2.8-5.4 2.3-2 6.1-2.2-5.4z"/>`,
+  Jazz: `<path d="M9 17.5V5.2l11-2.2v12.4" ${S2} stroke-width="2.4"/><circle cx="6.4" cy="17.6" r="3"/><circle cx="17.4" cy="15.6" r="3"/>`,
+  Suns: `<circle cx="12" cy="12" r="5"/><path d="M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3M4.8 4.8l2.1 2.1M17.1 17.1l2.1 2.1M4.8 19.2l2.1-2.1M17.1 6.9l2.1-2.1" ${S2} stroke-width="2.2"/>`,
+  Magic: `<path d="M12 2l2.6 6.3 6.9.6-5.2 4.5 1.6 6.7L12 16.5 6.1 20.1l1.6-6.7L2.5 8.9l6.9-.6z"/><circle cx="20" cy="3.5" r="1.3"/><circle cx="3.5" cy="20" r="1.1"/>`,
+  SuperSonics: `<circle cx="5" cy="12" r="2.7"/><path d="M10 6.2a8.2 8.2 0 0 1 0 11.6M14.2 3a12.6 12.6 0 0 1 0 18" ${S2} stroke-width="2.4"/>`,
+  Knicks: `<path d="M2.5 21.5V11h3.2V7.2h3.1V11H11V2.5h3.2V11h2V8h3.1v13.5z"/>`,
+  Spurs: `<path d="M12 1.5l1.6 7.5 7.4-1.6-6 4.6 6 4.6-7.4-1.6-1.6 7.5-1.6-7.5L3 16.6l6-4.6-6-4.6L10.4 9z"/><circle cx="12" cy="12" r="2.1" fill="var(--board)"/>`,
+  Cavaliers: `<path d="M16.5 2.5h5v5L12.7 16.3l-3-3z"/><path d="M5 13l6 6M3 21l4.2-4.2" ${S2} stroke-width="2.6"/>`,
+  Heat: `<path d="M12 1.8c1.1 4.2 6.3 6.3 6.3 12.4a6.3 6.3 0 0 1-12.6 0c0-3.2 2-5.3 3.2-7.4 0 2.1 1 3.2 2.1 3.2 0-3.2-1.1-5.3 1-8.2z"/><path d="M12 13.5c.8 1.8 2.4 2.6 2.4 4.4a2.4 2.4 0 0 1-4.8 0c0-1.3.9-2.2 1.4-3 .1.8.5 1.2.9 1.2-.1-1-.3-1.8.1-2.6z" fill="var(--board)"/>`,
+  Warriors: `<path d="M12 1.8l8.2 3.1v6.2c0 5.1-3.6 9.2-8.2 11.1-4.6-1.9-8.2-6-8.2-11.1V4.9z"/><path d="M8.4 7.4l7.2 9.6M15.6 7.4l-7.2 9.6" stroke="var(--board)" stroke-width="2" stroke-linecap="round" fill="none"/>`,
+  Raptors: `<path d="M6.5 2.5L4 21.5M12.5 2.5L10 21.5M18.5 2.5L16 21.5" ${S2} stroke-width="2.8"/>`,
+  Thunder: `<path d="M13.4 1.5L4 14.2h7.2l-1.4 8.3 9.4-12.6H12z"/>`,
+  Nuggets: `<path d="M6 3h12l4.2 6.2L12 22.2 1.8 9.2z"/><path d="M1.8 9.2h20.4M9 3l3 6.2L15 3M12 9.2v13" stroke="var(--board)" stroke-width="1.3" fill="none"/>`,
+  Bucks: `<path d="M8.2 21.5v-7.3C5 13.2 2.8 10.2 2.8 6M2.8 9.4l3.3-1.1M5.2 3.6v3.6M15.8 21.5v-7.3c3.2-1 5.4-4 5.4-8.2M21.2 9.4l-3.3-1.1M18.8 3.6v3.6M8.2 14.5h7.6" ${S2} stroke-width="2.2"/>`,
+  Mavericks: `<path d="M6.2 21V11a5.8 5.8 0 0 1 11.6 0v10" ${S2} stroke-width="3.8"/><circle cx="6.2" cy="15" r=".9" fill="var(--board)"/><circle cx="17.8" cy="15" r=".9" fill="var(--board)"/><circle cx="12" cy="6.4" r=".9" fill="var(--board)"/>`,
+  _you: `<circle cx="12" cy="12" r="9.2" ${S2} stroke-width="2.2"/><path d="M2.8 12h18.4M12 2.8v18.4M5.8 5.4c3.1 3.4 3.1 9.8 0 13.2M18.2 5.4c-3.1 3.4-3.1 9.8 0 13.2" ${S2} stroke-width="1.6"/>`,
+};
+// A round badge for a franchise era (pass a TEAMS entry), or for Your Five (pass null).
+function teamBadge(src, size = 28) {
+  const g = src ? GLYPHS[src.nick] : GLYPHS._you;
+  const color = src ? ERA_INFO[src.era].color : 'var(--led)';
+  return `<span class="tb" style="--tc:${color};--s:${size}px" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor">${g || ''}</svg></span>`;
+}
+const badgeFor = team => teamBadge(team && !team.user ? team.src : null);
 const ICON_BACK = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
 const COURT_SVG = `<svg class="court" viewBox="0 0 600 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <g fill="none" stroke="var(--court-line)" stroke-width="5">
@@ -1786,7 +1834,7 @@ function viewHome() {
           <div class="reels">
             <div class="reel"><div class="k">ERA</div><div class="v">${demo.era}</div></div>
             <div class="reel"><div class="k">TOP PLAYER</div><div class="v">Jordan 99</div></div>
-            <div class="reel wide"><div class="k">FRANCHISE · 12-MAN ROSTER</div><div class="v">${esc(demo.name)}</div></div>
+            <div class="reel wide"><div class="k">FRANCHISE · 12-MAN ROSTER</div><div class="reel-team">${teamBadge(demo, 34)}<div class="v">${esc(demo.name)}</div></div></div>
           </div>
           <div class="capline"><b>PICK 1 OF 5</b><span>${TEAMS.length} FRANCHISE ERAS · 1980s–2020s</span></div>
         </div>
@@ -1804,7 +1852,7 @@ function viewHome() {
       </section>
       <section><div class="sec">Legends waiting <span class="sec-sub">Top 3 per era</span></div>
         <div class="erachips">${ERAS.map(e => `<button data-action="homeEra" data-era="${e}" aria-pressed="${e === UI.homeEra}" style="--era:${ERA_INFO[e].color}">${e}</button>`).join('')}</div>
-        <div class="list">${legends.filter(t => t.era === UI.homeEra).map(t => `<div class="lrow"><span class="ovr sm" style="--era:${ERA_INFO[t.era].color}">${f1(t.rating)}</span><span class="pmain"><b>${esc(t.src.name)}</b><span class="pmeta">${esc(t.starters.slice(0, 3).map(p => shortName(p.name)).join(', '))}</span></span></div>`).join('')}</div>
+        <div class="list">${legends.filter(t => t.era === UI.homeEra).map(t => `<div class="lrow"><span class="ovr sm" style="--era:${ERA_INFO[t.era].color}">${f1(t.rating)}</span><span class="pmain"><b class="named">${teamBadge(t.src, 24)}<span>${esc(t.src.name)}</span></b><span class="pmeta">${esc(t.starters.slice(0, 3).map(p => shortName(p.name)).join(', '))}</span></span></div>`).join('')}</div>
       </section>
       <p class="fine">Player numbers are approximate regular-season averages for the listed season. Ratings and results are a simulation. Fan-made game, not affiliated with any league or team.</p>
     </div>
@@ -1859,7 +1907,7 @@ function viewDraft() {
       <div class="reels">
         <div class="reel ${d.spinning ? 'spin' : ''}"><div class="k">ERA</div><div class="v" id="reelEra">${eraTxt}</div></div>
         <div class="reel ${d.spinning ? 'spin' : ''} ${UI.landed ? 'lock' : ''}"><div class="k">TOP PLAYER</div><div class="v" id="reelStar">${esc(starTxt)}</div></div>
-        <div class="reel wide ${d.spinning ? 'spin' : ''}"><div class="k">FRANCHISE · 12-MAN ROSTER</div><div class="v" id="reelTeam">${esc(teamTxt)}</div></div>
+        <div class="reel wide ${d.spinning ? 'spin' : ''}"><div class="k">FRANCHISE · 12-MAN ROSTER</div><div class="reel-team">${t && !d.spinning ? teamBadge(t, 34) : ''}<div class="v" id="reelTeam">${esc(teamTxt)}</div></div></div>
       </div>
     </div>`;
     if (t && !d.spinning) {
@@ -1932,7 +1980,7 @@ function viewSeason() {
     <section class="card"><div class="sec">Playoff seeding <span class="sec-sub">Wins · rating</span></div>
       <div class="seeds">${S.field.map(e => {
         const zone = e.seed === 1 ? 'Playoffs' : e.seed === DIRECT_SEEDS + 1 ? 'Play-in' : e.seed === PLAYIN_LAST + 1 ? 'Out' : '';
-        return `${zone ? `<div class="zone z-${zone.toLowerCase().replace('-', '')}">${zone}${zone === 'Playoffs' ? ' · seeds 1–6' : zone === 'Play-in' ? ' · seeds 7–10, two spots' : ' · seeds 11+'}</div>` : ''}<div class="seed-r ${e.team.user ? 'you' : ''} ${e.seed > PLAYIN_LAST ? 'cut' : ''}"><span class="sd">${e.seed}</span><span class="nm">${e.team.user ? 'Your Five' : esc(e.team.label)}</span><span>${e.wins}${e.team.user ? '' : '*'}</span><span>${f1(e.team.rating)}</span></div>`;
+        return `${zone ? `<div class="zone z-${zone.toLowerCase().replace('-', '')}">${zone}${zone === 'Playoffs' ? ' · seeds 1–6' : zone === 'Play-in' ? ' · seeds 7–10, two spots' : ' · seeds 11+'}</div>` : ''}<div class="seed-r ${e.team.user ? 'you' : ''} ${e.seed > PLAYIN_LAST ? 'cut' : ''}"><span class="sd">${e.seed}</span>${teamBadge(e.team.user ? null : e.team.src, 22)}<span class="nm">${e.team.user ? 'Your Five' : esc(e.team.label)}</span><span>${e.wins}${e.team.user ? '' : '*'}</span><span>${f1(e.team.rating)}</span></div>`;
       }).join('')}</div>
       <p class="fine" style="margin-top:8px">* Projected wins over 82 games against the same pool.</p></section>`;
   }
@@ -1961,7 +2009,7 @@ function bracketView() {
       const s = series && series[i];
       if (!s) { items += `<div class="match tbd"><div class="tm"><span class="sd"></span><span class="nm">TBD</span><span></span></div><div class="tm"><span class="sd"></span><span class="nm">TBD</span><span></span></div></div>`; continue; }
       const show = s.done || s.a.team.user || s.b.team.user;
-      const row = (e, wins) => `<div class="tm ${s.done ? (s.winner === e ? 'win' : 'lose') : ''} ${e.team.user ? 'you' : ''}"><span class="sd">${e.seed}</span><span class="nm">${esc(entryName(e))}</span><span class="w">${show ? wins : ''}</span></div>`;
+      const row = (e, wins) => `<div class="tm ${s.done ? (s.winner === e ? 'win' : 'lose') : ''} ${e.team.user ? 'you' : ''}"><span class="sd">${e.seed}</span>${teamBadge(e.team.user ? null : e.team.src, 18)}<span class="nm">${esc(entryName(e))}</span><span class="w">${show ? wins : ''}</span></div>`;
       items += `<div class="match">${row(s.a, s.wa)}${row(s.b, s.wb)}</div>`;
     }
     cols.push(`<div class="bcol"><h3>${ROUND_NAMES[r]}</h3>${items}</div>`);
@@ -2039,7 +2087,7 @@ function viewPlayoffs() {
       ? `${banner}<div class="card"><div class="sec">${s.winner.team.user ? 'Series won' : 'Series lost'}</div><p class="muted">${s.winner.team.user ? `Your Five beat the ${esc(opp.team.label)} ${yw}–${ow}.` : `The ${esc(opp.team.label)} beat Your Five ${ow}–${yw}.`}</p></div>`
       : `${banner}<div class="sec">Game ${s.games.length + 1} plan</div>${plansView(s, you.team)}`;
   } else if (UI.tab === 'scout') {
-    body = `${scoutView(opp.team)}<div class="sec">${esc(opp.team.label)}</div><div class="list">${opp.team.starters.concat(opp.team.bench).filter(p => !p.generic).map(p => playerRow(p)).join('')}</div>`;
+    body = `${scoutView(opp.team)}<div class="sec"><span class="named">${badgeFor(opp.team)}<span>${esc(opp.team.label)}</span></span></div><div class="list">${opp.team.starters.concat(opp.team.bench).filter(p => !p.generic).map(p => playerRow(p)).join('')}</div>`;
   } else if (UI.tab === 'games') {
     body = s.games.length ? `<div class="list">${s.games.slice().reverse().map(g => {
       const r = gameLine(s, g);
@@ -2051,9 +2099,9 @@ function viewPlayoffs() {
   const next = s.games.length + 1;
   return appbar(ROUND_NAMES[P.round], `vs ${esc(opp.team.label)}`, 2) + page(`
     <div class="vs ${UI.gameAnim ? 'hit-' + UI.gameAnim : ''}">
-      <div class="side"><div class="tn" style="color:var(--led)">Your Five</div><div class="sub">Seed ${you.seed} · ${f1(you.team.rating)}</div></div>
+      <div class="side"><div class="tn" style="color:var(--led)">${teamBadge(null, 30)}<span>Your Five</span></div><div class="sub">Seed ${you.seed} · ${f1(you.team.rating)}</div></div>
       <div class="sc ${UI.gameAnim ? 'flip' : ''}">${yw}–${ow}</div>
-      <div class="side r"><div class="tn">${esc(opp.team.short)}</div><div class="sub">Seed ${opp.seed} · ${f1(opp.team.rating)}</div></div>
+      <div class="side r"><div class="tn"><span>${esc(opp.team.short)}</span>${badgeFor(opp.team)}</div><div class="sub">Seed ${opp.seed} · ${f1(opp.team.rating)}</div></div>
     </div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-action="tab" data-tab="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('')}</div>
     ${body}`)
@@ -2243,9 +2291,9 @@ function watchGame(s, g, done) {
     <div class="live-in">
       <div class="live-top"><span class="live-dot"></span>LIVE · ${esc(S.screen === 'playin' ? 'Play-in' : `${ROUND_NAMES[S.po.round]} · Game ${g.n}`)}</div>
       <div class="bug">
-        <div class="bt you"><span class="bn">YOU</span><span class="bs" id="lv-y">0</span></div>
+        <div class="bt you"><span class="bn-wrap">${teamBadge(null, 26)}<span class="bn">YOU</span></span><span class="bs" id="lv-y">0</span></div>
         <div class="bc"><span id="lv-q">1ST</span><b id="lv-c">12:00</b></div>
-        <div class="bt opp"><span class="bs" id="lv-o">0</span><span class="bn">${esc(oppName.toUpperCase())}</span></div>
+        <div class="bt opp"><span class="bs" id="lv-o">0</span><span class="bn-wrap"><span class="bn">${esc(oppName.toUpperCase())}</span>${badgeFor(opp.team)}</span></div>
       </div>
       <div class="leadbar"><i id="lv-lead"></i></div>
       <div class="lv-call" id="lv-call">Tip-off</div>
@@ -2592,7 +2640,7 @@ function viewPlayin() {
         <div class="sec">Game plan</div>${plansView(s, you.team)}`;
     }
   } else {
-    body = `${scoutView(opp.team)}<div class="sec">${esc(opp.team.label)}</div><div class="list">${opp.team.starters.concat(opp.team.bench).filter(p => !p.generic).map(p => playerRow(p)).join('')}</div>`;
+    body = `${scoutView(opp.team)}<div class="sec"><span class="named">${badgeFor(opp.team)}<span>${esc(opp.team.label)}</span></span></div><div class="list">${opp.team.starters.concat(opp.team.bench).filter(p => !p.generic).map(p => playerRow(p)).join('')}</div>`;
   }
   let actions;
   if (s.done) {
@@ -2603,9 +2651,9 @@ function viewPlayin() {
   }
   return appbar('Play-in', `${names[pi.cur]} vs ${esc(opp.team.label)}`, 2) + page(`
     <div class="vs ${UI.gameAnim ? 'hit-' + UI.gameAnim : ''}">
-      <div class="side"><div class="tn" style="color:var(--led)">Your Five</div><div class="sub">Seed ${you.seasonSeed} · ${f1(you.team.rating)}</div></div>
+      <div class="side"><div class="tn" style="color:var(--led)">${teamBadge(null, 30)}<span>Your Five</span></div><div class="sub">Seed ${you.seasonSeed} · ${f1(you.team.rating)}</div></div>
       <div class="sc ${UI.gameAnim ? 'flip' : ''}">${g ? `${yp}–${op}` : 'VS'}</div>
-      <div class="side r"><div class="tn">${esc(opp.team.short)}</div><div class="sub">Seed ${opp.seasonSeed} · ${f1(opp.team.rating)}</div></div>
+      <div class="side r"><div class="tn"><span>${esc(opp.team.short)}</span>${badgeFor(opp.team)}</div><div class="sub">Seed ${opp.seasonSeed} · ${f1(opp.team.rating)}</div></div>
     </div>
     <div class="tabs two" role="tablist">${[['plan', 'Plan'], ['scout', 'Scout']].map(([k, l]) => `<button role="tab" data-action="tab" data-tab="${k}" aria-selected="${tab === k}">${l}</button>`).join('')}</div>
     ${body}`) + actionbar(actions);
